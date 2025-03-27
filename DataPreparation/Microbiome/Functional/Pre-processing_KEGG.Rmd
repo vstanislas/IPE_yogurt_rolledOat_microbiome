@@ -1,0 +1,416 @@
+---
+title: "Pre-processing KEGG All samples - Yogurt study"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+---
+
+
+
+```{r message=FALSE}
+library(phyloseq)
+library(dplyr)
+library(readxl)
+library(tidyr)
+library(ggplot2)
+library(mia)
+library(microbiome)
+library(patchwork)
+library(ggExtra)
+
+dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
+dir1 <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
+dir <- paste(dir1, "DataPreparation/Microbiome_DATA_Kun_Huang/", sep="")
+
+source(file = paste(dir1, "Utils.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir0, "R functions/code_utils.R", sep=""))
+```
+
+
+
+# Loading tables
+## Metadata
+```{r}
+metadata <- read_excel(paste(dir, "Metadata.xlsx", sep=""), sheet=1)
+metadata <- as.data.frame(metadata)
+
+metadata$Sample_ID <- gsub("-", "", metadata$Sample_ID)
+metadata$Treatment <- case_when(metadata$Timepoint %in% c("T1", "T3") ~ "Before",
+                                metadata$Timepoint %in% c("T2", "T4") ~ "After",
+                                TRUE ~ NA_character_)
+metadata$Intervention <- case_when(metadata$Timepoint %in% c("T1", "T2") & metadata$Gruppe == "A" ~ "Yogurt",
+                                   metadata$Timepoint %in% c("T3", "T4") & metadata$Gruppe == "A" ~ "YogurtOatmeal",
+                                   metadata$Timepoint %in% c("T1", "T2") & metadata$Gruppe == "B" ~ "YogurtOatmeal",
+                                   metadata$Timepoint %in% c("T3", "T4") & metadata$Gruppe == "B" ~ "Yogurt",
+                                TRUE ~ NA_character_)
+
+metadata$Inter_treat <- paste(metadata$Treatment, metadata$Intervention, sep=".")
+metadata$Inter_treat <- factor(metadata$Inter_treat, levels = c("Before.Yogurt", "After.Yogurt", "Before.YogurtOatmeal", "After.YogurtOatmeal"), ordered=T)
+metadata$Treatment <- factor(metadata$Treatment, levels = c("Before", "After"), ordered=T)
+metadata$Timepoint <- factor(metadata$Timepoint, levels = c("T1", "T2", "T3", "T4"), ordered=T)
+metadata$Gruppe <- as.factor(metadata$Gruppe)
+metadata$Participant_ID <- as.factor(metadata$Participant_ID)
+metadata$Geschlecht <- as.factor(metadata$Geschlecht)
+metadata$Intervention <- as.factor(metadata$Intervention)
+
+rownames(metadata) <- metadata[, "Sample_ID"]
+```
+
+```{r}
+dim(metadata) # 440   11
+```
+
+## KEGG and description
+
+```{r}
+load("JH_KEGG.Rdata")
+dim(KEGG_JH) #  967 441
+```
+
+```{r}
+load("KEGG_GO_annotation.Rdata")
+rm(kegg_go0, go_data, info_go, ko_data)
+info_ko <- info_ko[, c("KEGG", "name")]
+```
+
+
+```{r}
+# rearrange column, row names
+rownames(KEGG_JH) <- KEGG_JH$KEGG
+KEGG_JH$Total_ab <- rowSums(KEGG_JH[, -c(1)], na.rm=T)
+KEGG_JH <- KEGG_JH[order(KEGG_JH$Total_ab, decreasing=T),]
+
+
+# separate KEGG description to another file
+desc_df <- KEGG_JH[, c("KEGG", "Total_ab")] 
+desc_df <- merge(desc_df, info_ko, by="KEGG", all.x=T)
+desc_df <- desc_df[order(desc_df$Total_ab, decreasing=T),]
+desc_df <- relocate(desc_df, name, .before=Total_ab)
+desc_df <- dplyr::rename(desc_df, Descr=name)
+rownames(desc_df) <- desc_df$KEGG
+
+KEGG_JH$KEGG <- NULL
+KEGG_JH$Total_ab <- NULL
+```
+
+
+```{r}
+# we didn't detected NA 
+sum(is.na(KEGG_JH)) # 0
+```
+
+```{r}
+# replace NA by 0
+# KEGG_JH[is.na(KEGG_JH)] <- 0
+```
+
+```{r}
+summary(colSums(KEGG_JH))
+```
+```{r}
+hist(colSums(KEGG_JH))
+```
+
+
+```{r}
+# Normalization
+KEGG_JH_CPM <- sweep(KEGG_JH, 2, colSums(KEGG_JH), FUN="/")* 1000000
+```
+
+
+```{r}
+dim(KEGG_JH)
+```
+
+```{r}
+summary(colSums(KEGG_JH_CPM))
+```
+```{r}
+hist(colSums(KEGG_JH_CPM))
+```
+
+```{r}
+inters_names <- intersect(colnames(KEGG_JH_CPM), rownames(metadata))
+cat("Samples present in HUMAnN and absent from Metadata: ")
+colnames(KEGG_JH_CPM)[!(colnames(KEGG_JH_CPM) %in% inters_names)]
+
+cat("Samples present in Metadata and absent from HUMAnN: ")
+rownames(metadata)[!(rownames(metadata) %in% inters_names)]
+```
+
+
+
+# Creating objects
+## Tree Summarized Experiment
+
+
+### 967 KEGG renorm
+
+```{r}
+metadata <- metadata[order(metadata$Sample_ID), ]
+tse_KEGG_renorm <- TreeSummarizedExperiment(assays =  SimpleList(CPM=as.matrix(KEGG_JH_CPM)),
+                                        colData = DataFrame(metadata),
+                                        rowData = DataFrame(desc_df))
+```
+
+```{r}
+tse_KEGG_renorm
+```
+
+
+### 967 KEGG
+```{r}
+metadata <- metadata[order(metadata$Sample_ID), ]
+tse_KEGG <- TreeSummarizedExperiment(assays =  SimpleList(CPM=as.matrix(KEGG_JH)),
+                                        colData = DataFrame(metadata),
+                                        rowData = DataFrame(desc_df))
+```
+
+```{r}
+tse_KEGG
+```
+
+
+## Phyloseq
+
+### 967 KEGG renorm
+```{r}
+OTU = otu_table(as.matrix(KEGG_JH_CPM), taxa_are_rows = TRUE)
+TAX = tax_table(desc_df[, 1:2])
+rownames(TAX) <- TAX[,"ta1"]
+colnames(TAX) <- c("KEGG", "Descr")
+SAM = sample_data(metadata)
+```
+
+```{r}
+dim(OTU)
+```
+
+
+```{r}
+inters_names <- intersect(colnames(OTU), rownames(metadata))
+cat("Samples present in Metaphlan and absent from Metadata: ")
+colnames(OTU)[!(colnames(OTU) %in% inters_names)]
+
+cat("Samples present in Metadata and absent from Metaphlan: ")
+rownames(metadata)[!(rownames(metadata) %in% inters_names)]
+```
+
+
+```{r}
+physeq_KEGG_renorm = phyloseq(OTU, TAX, SAM)
+physeq_KEGG_renorm 
+```
+
+
+```{r}
+# Print sample / taxa lost when creating phyloseq object
+if(!ncol(OTU) == ncol(otu_table(physeq_KEGG_renorm))){
+  inters_names <- intersect(colnames(OTU), colnames(otu_table(physeq_KEGG_renorm)))
+  cat("Phyloseq sample lost: ")
+  colnames(OTU)[!(colnames(OTU) %in% inters_names)] %>% print()
+}
+if(!nrow(OTU) == nrow(otu_table(physeq_KEGG_renorm))){
+  inters_names <- intersect(rownames(OTU), rownames(otu_table(physeq_KEGG_renorm)))
+  cat("Phyloseq taxa lost: ")
+  rownames(OTU)[!(rownames(OTU) %in% inters_names)] %>% print()
+}
+```
+
+
+### 967 KEGG
+```{r}
+OTU = otu_table(as.matrix(KEGG_JH), taxa_are_rows = TRUE)
+TAX = tax_table(desc_df[, 1:2])
+rownames(TAX) <- TAX[,"ta1"]
+colnames(TAX) <- c("KEGG", "Descr")
+SAM = sample_data(metadata)
+```
+
+```{r}
+dim(OTU)
+```
+
+
+```{r}
+inters_names <- intersect(colnames(OTU), rownames(metadata))
+cat("Samples present in Metaphlan and absent from Metadata: ")
+colnames(OTU)[!(colnames(OTU) %in% inters_names)]
+
+cat("Samples present in Metadata and absent from Metaphlan: ")
+rownames(metadata)[!(rownames(metadata) %in% inters_names)]
+```
+
+
+```{r}
+physeq_KEGG = phyloseq(OTU, TAX, SAM)
+physeq_KEGG 
+```
+
+
+```{r}
+# Print sample / taxa lost when creating phyloseq object
+if(!ncol(OTU) == ncol(otu_table(physeq_KEGG))){
+  inters_names <- intersect(colnames(OTU), colnames(otu_table(physeq_KEGG)))
+  cat("Phyloseq sample lost: ")
+  colnames(OTU)[!(colnames(OTU) %in% inters_names)] %>% print()
+}
+if(!nrow(OTU) == nrow(otu_table(physeq_KEGG))){
+  inters_names <- intersect(rownames(OTU), rownames(otu_table(physeq_KEGG)))
+  cat("Phyloseq taxa lost: ")
+  rownames(OTU)[!(rownames(OTU) %in% inters_names)] %>% print()
+}
+```
+
+# Prevalence and abundance
+
+## 967 KEGG rnorm
+```{r}
+total_abundance <- rowSums(KEGG_JH_CPM) 
+max_abundance <- apply(KEGG_JH_CPM, 1, max)
+preval <- getPrevalence(tse_KEGG_renorm, assay_name="CPM")
+
+df <- data.frame(Species= names(total_abundance), total_abundance=total_abundance, max_abundance=max_abundance, preval=preval)
+```
+
+```{r}
+pp <- ggplot(df, aes(max_abundance, preval)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+   theme_bw()
+pp1 <- ggMarginal(pp, type="density") 
+
+pp2 <- pp +
+  scale_x_log10(labels = scales::label_number(), name = "Maximum Abundance") +
+  scale_y_log10(
+   labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+   name = "Prevalence (%)")
+pp2 <- ggMarginal(pp2, type="density") 
+wrap_plots(pp1, pp2)
+
+
+
+df2 <- df[-c(1:2),]
+pp <- ggplot(df2, aes(max_abundance, preval)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+   theme_bw()
+pp1 <- ggMarginal(pp, type="density") 
+
+pp2 <- pp +
+  scale_x_log10(labels = scales::label_number(), name = "Maximum Abundance") +
+  scale_y_log10(
+   labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+   name = "Prevalence (%)")
+pp2 <- ggMarginal(pp2, type="density") 
+wrap_plots(pp1, pp2) + plot_annotation("Without UNMAPPED and UNINTEGRATED pathways")
+```
+
+```{r fig.height=7, fig.width=10}
+p1 <- ggplot(df, aes(x=total_abundance)) + geom_histogram(bins=30, color="white") + scale_x_log10()
+p2 <- ggplot(df, aes(x=max_abundance)) + geom_histogram(bins=30, color="white") + scale_x_log10()
+p3 <- ggplot(df, aes(x=preval)) + geom_histogram(bins=30, color="white") + scale_x_log10()
+wrap_plots(p1, p2, p3, ncol=2)
+```
+
+## 967 KEGG
+```{r}
+total_abundance <- rowSums(KEGG_JH) 
+max_abundance <- apply(KEGG_JH, 1, max)
+preval <- getPrevalence(tse_KEGG, assay_name="CPM")
+
+df <- data.frame(Species= names(total_abundance), total_abundance=total_abundance, max_abundance=max_abundance, preval=preval)
+```
+
+
+```{r}
+pp <- ggplot(df, aes(max_abundance, preval)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+   theme_bw()
+pp1 <- ggMarginal(pp, type="density") 
+
+pp2 <- pp +
+  scale_x_log10(labels = scales::label_number(), name = "Maximum Abundance") +
+  scale_y_log10(
+   labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+   name = "Prevalence (%)")
+pp2 <- ggMarginal(pp2, type="density") 
+wrap_plots(pp1, pp2)
+
+
+
+df2 <- df[-c(1:2),]
+pp <- ggplot(df2, aes(max_abundance, preval)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+   theme_bw()
+pp1 <- ggMarginal(pp, type="density") 
+
+pp2 <- pp +
+  scale_x_log10(labels = scales::label_number(), name = "Maximum Abundance") +
+  scale_y_log10(
+   labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+   name = "Prevalence (%)")
+pp2 <- ggMarginal(pp2, type="density") 
+wrap_plots(pp1, pp2) + plot_annotation("Without UNMAPPED and UNINTEGRATED pathways")
+```
+
+```{r fig.height=7, fig.width=10}
+p1 <- ggplot(df, aes(x=total_abundance)) + geom_histogram(bins=30, color="white") + scale_x_log10()
+p2 <- ggplot(df, aes(x=max_abundance)) + geom_histogram(bins=30, color="white") + scale_x_log10()
+p3 <- ggplot(df, aes(x=preval)) + geom_histogram(bins=30, color="white") + scale_x_log10()
+wrap_plots(p1, p2, p3, ncol=2)
+```
+
+
+
+
+# Normalization 
+
+## Check total number of reads
+
+```{r fig.height=4, fig.width=7, message=FALSE}
+sum <-  colSums(KEGG_JH)
+mean <- colMeans(KEGG_JH)
+sam <- data.frame(sum=sum, mean=mean)
+pp <- ggplot(sam, aes(x = sum)) + 
+  geom_histogram(color = "black", fill = "blue")+  ggtitle("Distribution of sequencing depth") 
+pp
+
+
+sum <-  colSums(KEGG_JH_CPM)
+mean <- colMeans(KEGG_JH_CPM)
+sam <- data.frame(sum=sum, mean=mean)
+pp <- ggplot(sam, aes(x = sum)) + 
+  geom_histogram(color = "black", fill = "blue")+  ggtitle("Distribution of sequencing depth") 
+pp
+```
+
+
+
+# Saving objects
+
+
+```{r}
+save(tse_KEGG, physeq_KEGG, file=paste(dir, "Functional/TSE_Physeq_KEGG.Rdata", sep=""))
+```
+
+```{r}
+save(tse_KEGG_renorm, physeq_KEGG_renorm, file=paste(dir, "Functional/TSE_Physeq_KEGG_renorm.Rdata", sep=""))
+```
+
+
+```{r}
+desc_df_toSave <- desc_df
+rownames(desc_df_toSave) <- NULL
+colnames(desc_df_toSave) <- c("KEGG", "Description", "Total CPM")
+
+write.xlsx(desc_df_toSave, file=paste(dir1, "DataAnalysis/KEGG_description.xlsx", sep=""), row.names = F)
+```
+

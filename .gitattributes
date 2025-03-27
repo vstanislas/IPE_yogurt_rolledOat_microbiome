@@ -1,0 +1,9 @@
+DataAnalysis/Results_Main_Analysis/ResultsFunctional/On_191601genes_fromCPM/NBZIMM_asinsqrt_full_results.xlsx filter=lfs diff=lfs merge=lfs -text
+DataAnalysis/Results_Main_Analysis/ResultsFunctional/On_191601genes_fromCPM/NBZIMM_asinsqrt_YO_results.xlsx filter=lfs diff=lfs merge=lfs -text
+DataAnalysis/Results_Main_Analysis/ResultsFunctional/On_191601genes_fromCPM/NBZIMM_asinsqrt_Y_results.xlsx filter=lfs diff=lfs merge=lfs -text
+DataAnalysis/Results_Main_Analysis/ResultsFunctional/On_191601genes_fromCPM/tse_allwithordination.Rdata filter=lfs diff=lfs merge=lfs -text
+DataPreparation/Microbiome/Functional/genefamilies_exp86_440_cpm_unstratified_10prev_1cpm.tsv filter=lfs diff=lfs merge=lfs -text
+DataPreparation/Microbiome/Functional/JH_191601genes_CPM.Rdata filter=lfs diff=lfs merge=lfs -text
+DataPreparation/Microbiome/Functional/kegg_go_annotation.tsv filter=lfs diff=lfs merge=lfs -text
+DataPreparation/Microbiome/Functional/pathways_all_704_samples_cpm.tsv filter=lfs diff=lfs merge=lfs -text
+DataPreparation/Microbiome/Functional/TSE_Physeq_191601genes_fromCPM.Rdata filter=lfs diff=lfs merge=lfs -text

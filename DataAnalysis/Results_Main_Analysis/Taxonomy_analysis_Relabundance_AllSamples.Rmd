@@ -1,0 +1,1479 @@
+---
+title: "Taxonomic Analysis of relative values with all samples"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+<style>
+.main-container { width: 1200px; max-width:2800px;}
+</style>
+
+
+
+
+# Loading
+
+```{r message=FALSE}
+library(phyloseq)
+library(ggplot2)
+library(plyr)
+library(ape)
+library(knitr)
+library(vegan)
+library(tidyr)
+library(gridExtra)
+# library(lemon)
+library(RColorBrewer)
+library(dplyr)
+library(cowplot)
+library(scater)
+library(ggnewscale)
+library(mia)
+library(miaViz)
+library(kableExtra)
+library(patchwork)
+library(microViz)
+library(lme4)
+library(emmeans)
+library(flextable)
+library(ggpubr)
+library(reshape)
+library(tictoc)
+```
+
+
+```{r}
+dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
+path_analysis <- paste(dir, "DataAnalysis/Results_Complete_Analysis/ResultsTaxonomy/On_relabundance_AllSamples/", sep="")
+
+source(file = paste(dir, "Utils.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir0, "R functions/code_utils.R", sep=""))
+```
+
+
+```{r}
+### Load data with already ordination and alpha diversity (saved at step 2.3.1)
+### contains tse, tse_sub, tse_SGB
+load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
+```
+
+
+
+```{r message=FALSE}
+load(paste(dir, "DataPreparation/Microbiome_DATA_Kun_Huang/Taxonomy/Data_cleaned_ALL_unfiltered.Rdata", sep=""))
+load(paste(dir, "DataPreparation/Microbiome_DATA_Kun_Huang/Taxonomy/Data_cleaned_ALL_filtered.Rdata", sep=""))
+
+# Define working objects
+tse_SGB0 <- tse
+physeq_SGB0 <- physeq_rel_SGBR
+
+tse0 <- altExp(tse,"Species")  # 1366 440 
+physeq0 <- physeq_rel_spR
+
+
+
+tse_SGB_sub0 <- tse_clean
+physeq_SGB_sub0 <- physeq_rel_SGB_Clean2R
+
+tse_sub0 <- altExp(tse_clean,"Species") # 698 440  
+physeq_sub0 <- physeq_rel_sp_Clean2R
+```
+
+```{r}
+# Remove 2 samples from ID016 not correctly prepared by the participant
+tse_SGB <- tse_SGB0[, c(!(tse_SGB0$Sample_ID  %in% c("JH379", "JH380")))]
+tse <- tse0[, c(!(tse0$Sample_ID  %in% c("JH379", "JH380")))]
+tse_SGB_sub <- tse_SGB_sub0[, c(!(tse_SGB_sub0$Sample_ID  %in% c("JH379", "JH380")))]
+tse_sub <- tse_sub0[, c(!(tse_sub0$Sample_ID  %in% c("JH379", "JH380")))]
+
+physeq_SGB <- ps_filter(physeq_SGB0, !(Sample_ID %in% c("JH379", "JH380")))
+physeq <- ps_filter(physeq0, !(Sample_ID %in% c("JH379", "JH380")))
+physeq_SGB_sub <- ps_filter(physeq_SGB_sub0, !(Sample_ID %in% c("JH379", "JH380")))
+physeq_sub <- ps_filter(physeq_sub0, !(Sample_ID %in% c("JH379", "JH380")))
+```
+
+
+
+```{r message=FALSE}
+# removed ordered factor to allow some plotting functions to work properly
+physeq_SGB_noFact <-  physeq_SGB
+sample_data(physeq_SGB_noFact)$Inter_treat <- as.character(sample_data(physeq_SGB_noFact)$Inter_treat )
+sample_data(physeq_SGB_noFact)$Inter_treat <- as.factor(sample_data(physeq_SGB_noFact)$Inter_treat )
+
+
+physeq_SGB_sub_noFact <-  physeq_SGB_sub
+sample_data(physeq_SGB_sub_noFact)$Inter_treat <- as.character(sample_data(physeq_SGB_sub_noFact)$Inter_treat )
+sample_data(physeq_SGB_sub_noFact)$Inter_treat <- as.factor(sample_data(physeq_SGB_sub_noFact)$Inter_treat )
+```
+
+
+
+```{r}
+# proband_colors <- brewer.pal(n = length(unique(sample_data(mydata.psq)$Proband)), name = "Set1")
+# names(proband_colors) <- unique(sample_data(mydata.psq)$Proband)
+
+cols <- c("#017b74", "#73ffec", "#ad0053", "#ffcacf", "#ff8d3f", "#ffdf91", "#00c14e","#abffc2", "#6042ed", "#90b9ff", "#700054","#ff8bfc", "#3d8b00", "#bcff7c", "#8b3700", "#ffba91", "#ff4e2a", "#000e26", "#71a800", "#577eff", "#02d0d3", "#d00039", "#dba500", "#ac72ff", "#e0c9ff", "#002e66", "#006dbd", "#02a0c8", "#db37ec",  "#e5ffd5", "#004a20", "#637500", "#ec00bf", "#434d00","#ff77a8", "#002f17", "#f1ff4b", "#533500", "#7ea2ff", "#000d4e", "#ff41a0", "#003636", "#271800", "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#A65628", "#F781BF", "#FFFF00FF", "#999999")
+
+cols_Inter_treat <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
+
+cols_Participant_Id <- rep(cols, 3)
+names(cols_Participant_Id) <- unique(colData(tse)[, "Participant_ID"])
+```
+
+
+# Exploration
+
+## Prevalence x Abundance
+
+**prevalence**: frequency of samples where the taxa was detected
+
+**abundance**: number of reads assigned to a taxa (on average or in total)
+
+```{r}
+rowData(tse)$prevalence <- getPrevalence(tse, detection = 0, sort = FALSE, assay.type = "relabundance", as_relative = TRUE)
+rowData(tse)$abundance_sum <- rowSums(assays(tse)[["relabundance"]])
+rowData(tse)$abundance_mean <- rowMeans(assays(tse)[["relabundance"]])
+rowData(tse)$abundance_max <- apply(assays(tse)[["relabundance"]], 1, max)
+
+
+rowData(tse_sub)$prevalence <- getPrevalence(tse_sub, detection = 0, sort = FALSE, assay.type = "relabundance", as_relative = TRUE)
+rowData(tse_sub)$abundance_sum <- rowSums(assays(tse_sub)[["relabundance"]])
+rowData(tse_sub)$abundance_mean <- rowMeans(assays(tse_sub)[["relabundance"]])
+rowData(tse_sub)$abundance_max <- apply(assays(tse_sub)[["relabundance"]], 1, max)
+```
+
+
+```{r fig.height=7, fig.width=9}
+## Prevalence x abundance on the complete species data
+ggplot(as.data.frame(rowData(tse)), aes(abundance_sum, prevalence)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+  scale_x_continuous(labels = scales::label_number(), name = "Total Abundance") +
+  scale_y_continuous(
+    labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+    name = "Prevalence (%)",
+    sec.axis = sec_axis(
+      trans = ~ . * ncol(tse), breaks = scales::breaks_pretty(n = 9),
+      name = "Prevalence (N samples)"
+    )) + 
+  ggrepel::geom_text_repel(
+    data = function(df) filter(df, abundance_sum > 300 | prevalence > 0.6),
+  mapping = aes(label = Species), size = 2.5, min.segment.length = 0)+
+   theme_bw()
+```
+
+
+
+```{r fig.height=10, fig.width=12}
+## Prevalence x abundance on the complete species data - axis log transformed
+ggplot(as.data.frame(rowData(tse)), aes(abundance_sum, prevalence)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+  scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), labels = scales::label_number(), name = "Total Abundance") +
+  scale_y_continuous(trans=scales::pseudo_log_trans(base = 10),
+    labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+    name = "Prevalence (%)",
+    sec.axis = sec_axis(
+      trans = ~ . * ncol(tse), breaks = scales::breaks_pretty(n = 9),
+      name = "Prevalence (N samples)"
+    )) + 
+  ggrepel::geom_text_repel(
+    #data = function(df) filter(df, abundance_sum > 300 | prevalence > 0.6),
+  mapping = aes(label = Species), size = 2.5, min.segment.length = 0)+
+   theme_bw() 
+```
+
+
+# Ordination
+
+
+
+- **Distance/dissimilarity measures** 
+  - **`r colorize("Bray-curtis", "#02a0c8")`**: take into account the abundance $BC_{ij}= 1 - \frac{2C_{ij}}{S_i + S_j}$ with $S_i$ : Total number of species in sample $i$, $S_j$ : Total number of species in sample $j$ and $C_{ij}$ : Sum of lesser value for those species common in both samples
+  - **`r colorize("Unifrac", "#02a0c8")`**:  take into account the phylogenetic tree information
+      - unweigthed unifrac: Measures the fraction of unique branch length / measures the relative length of those branches that lead exclusively to species present in only one of the two samples with respect to the total length of all branches in the tree.
+    - weigthed unifrac: includes information on the relative abundance of each taxa
+  - **`r colorize("Jaccard", "#02a0c8")`**: presence / absence, ignores abundance and phylogenetic information
+  - **`r colorize("Aitchison", "#02a0c8")`**: take into consideration the compositional structure of the data. Dissimilarity measure calculated as the Euclidean distance between samples after performing a centered log ratio (clr) transformation.
+  
+- **Ordination/dimention reduction methods** 
+  - **`r colorize("PCoA/MDS", "#02a0c8")`**: extension of Principal Components Analysis (PCA),  detect linear trends
+  - **`r colorize("NMDS", "#02a0c8")`**: mon-metric multidimensional scaling can detect non-linear patterns
+  - **`r colorize("TSNE", "#02a0c8")`**: 
+  - **`r colorize("UMAP", "#02a0c8")`**: 
+  
+## On Species space - full data
+
+```{r}
+load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
+```
+
+
+```{r}
+# ON MAC
+tse <- runMDS(tse, FUN = vegan::vegdist, method = "bray", name = "PCoA_BC", exprs_values = "relabundance", keep_dist = T)
+set.seed(40)
+tse <- runMDS(tse, FUN = mia::calculateUnifrac,  weighted=T, name = "PCoA_wUnifrac", tree = rowTree(tse), ntop = nrow(tse), exprs_values = "relabundance", keep_dist = T)
+
+tse <- runNMDS(tse, FUN = vegan::vegdist, method = "bray", name = "NMDS_BC", exprs_values = "relabundance", keep_dist = T)
+set.seed(40)
+tse <- runNMDS(tse, FUN = mia::calculateUnifrac, weighted=T, name = "NMDS_wUnifrac", tree = rowTree(tse), ntop = nrow(tse), exprs_values = "relabundance", keep_dist = T)
+
+
+# Alternative methods to try
+# not easy to change the metric for UMAP, no braycurtis dissimilarity in package uwot
+set.seed(122)
+tse <- runTSNE(tse, name = "TSNE", exprs_values="relabundance")
+set.seed(122)
+tse <- runUMAP(tse, name = "UMAP", exprs_values="relabundance")
+```
+
+
+
+### PCoA Bray-Curtis
+
+Almost the same representation when done on filtered data `tse_sub`.
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse, "PCoA_BC", sd_threshold=0.0875, rank_dominance="Family")
+e <- attr(reducedDim(tse, "PCoA_BC"), "eig");
+rel_eig <- e/sum(e[e>0])          
+x_lab = paste("PCoA 1 (", round(100 * rel_eig[[1]],1), "%", ")", sep = "")
+y_lab = paste("PCoA 2 (", round(100 * rel_eig[[2]],1), "%", ")", sep = "")
+
+PartHsd_PCoA_BC <- pp$Participants_high_sd
+p1 <- pp$p_gruppe + labs(x=x_lab, y=y_lab)
+p2 <- pp$p_topdom + labs(x=x_lab, y=y_lab)
+p3 <- plot_ordination(tse, "PCoA_BC", sd_threshold=0.0875, rank_dominance="Genus")$p_topdom
+p4 <- pp$p_inter_treat + labs(x=x_lab, y=y_lab)
+p5 <- pp$p_part + labs(x=x_lab, y=y_lab)
+p6 <- pp$p_hv_part + labs(x=x_lab, y=y_lab)
+
+# (p1 + p5 +  p2) / (p4 + p6 + p3) + plot_layout(guides = 'collect')
+```
+Warning message: "'clr' includes negative values. Agglomeration of it might lead to meaningless values." comes from `plot_ordination()` when identifying the most dominant taxa for a specific rank. We can ignore it as we use 'relabudance' assays for identifying dominant taxa.
+
+```{r fig.height=9, fig.width=14, message=FALSE, paged.print=FALSE}
+p3
+```
+
+```{r fig.height=24, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium","Clostridia_unclassified", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Clostridium", "Coprococcus", "Faecalibacterium", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse, "PCoA_BC", genus=genus)$p_1spec 
+}
+# wrap_plots(p_list, ncol=3) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_PCoA_BC.png", sep=""), 
+       p1 + p5 +  p2 + p4 + p6 + p3 + plot_layout(guides = 'collect'), 
+       width=27, height=15)
+
+
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_PCoA_BC_withGenus.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+
+### PCoA weigthed Unifrac
+Change at each iteration as there is no predefined root for the tree in species space
+
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse, "PCoA_wUnifrac", sd_threshold=0.03, rank_dominance="Family")
+e <- attr(reducedDim(tse, "PCoA_wUnifrac"), "eig");
+rel_eig <- e/sum(e[e>0])          
+x_lab = paste("PCoA 1 (", round(100 * rel_eig[[1]],1), "%", ")", sep = "")
+y_lab = paste("PCoA 2 (", round(100 * rel_eig[[2]],1), "%", ")", sep = "")
+
+PartHsd_PCoA_wUnifrac <- pp$Participants_high_sd
+p1 <- pp$p_gruppe + labs(x=x_lab, y=y_lab)
+p2 <- pp$p_topdom + labs(x=x_lab, y=y_lab)
+p3 <- plot_ordination(tse, "PCoA_wUnifrac", sd_threshold=0.03, rank_dominance="Genus")$p_topdom
+p4 <- pp$p_inter_treat + labs(x=x_lab, y=y_lab)
+p5 <- pp$p_part + labs(x=x_lab, y=y_lab)
+p6 <- pp$p_hv_part + labs(x=x_lab, y=y_lab)
+
+#(p1 + p5 +  p2) / (p4 + p6 + p3) + plot_layout(guides = 'collect')
+```
+
+```{r fig.height=9, fig.width=14, message=FALSE, paged.print=FALSE}
+p3
+```
+
+```{r fig.height=24, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium","Clostridia_unclassified", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Clostridium", "Coprococcus", "Faecalibacterium", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse, "PCoA_wUnifrac", genus=genus)$p_1spec 
+}
+#wrap_plots(p_list, ncol=3) 
+```
+
+
+```{r}
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_PCoA_wUnifrac.png", sep=""), 
+       p1 + p5 +  p2 + p4 + p6 + p3 + plot_layout(guides = 'collect'), 
+       width=27, height=15)
+
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_PCoA_wUnifrac_withGenus.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+
+### NMDS Bray-Curtis
+
+Almost the same representation when done on filtered data `tse_sub`.
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse, "NMDS_BC", sd_threshold=0.18, rank_dominance="Family")
+PartHsd_NMDS_BC <- pp$Participants_high_sd
+p1 <- pp$p_gruppe 
+p2 <- pp$p_topdom
+p3 <- plot_ordination(tse, "NMDS_BC", sd_threshold=0.18, rank_dominance="Genus")$p_topdom
+p4 <- pp$p_inter_treat 
+p5 <- pp$p_part 
+p6 <- pp$p_hv_part
+
+#(p1 + p5 +  p2) / (p4 + p6 + p3) + plot_layout(guides = 'collect')
+```
+
+```{r fig.height=9, fig.width=14, message=FALSE, paged.print=FALSE}
+p3
+```
+
+```{r fig.height=24, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium","Clostridia_unclassified", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Clostridium", "Coprococcus", "Faecalibacterium", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse, "NMDS_BC", genus=genus)$p_1spec 
+}
+#wrap_plots(p_list, ncol=3) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_NMDS_BC.png", sep=""), 
+       p1 + p5 +  p2 + p4 + p6 + p3 + plot_layout(guides = 'collect'), 
+       width=27, height=15)
+
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_NMDS_BC_withGenus.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+
+### NMDS weighted Unifrac
+
+Change at each iteration as there is no predefined root for the tree in species space
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse, "NMDS_wUnifrac", sd_threshold=0.08, rank_dominance="Family")
+PartHsd_NMDS_wUnifrac <- pp$Participants_high_sd
+p1 <- pp$p_gruppe 
+p2 <- pp$p_topdom
+p3 <- plot_ordination(tse, "NMDS_wUnifrac", sd_threshold=0.08, rank_dominance="Genus")$p_topdom
+p4 <- pp$p_inter_treat 
+p5 <- pp$p_part 
+p6 <- pp$p_hv_part
+
+#(p1 + p5 +  p2) / (p4 + p6 + p3) + plot_layout(guides = 'collect')
+```
+
+```{r fig.height=9, fig.width=14, message=FALSE, paged.print=FALSE}
+p3
+```
+
+```{r fig.height=24, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium","Clostridia_unclassified", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Clostridium", "Coprococcus", "Faecalibacterium", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse, "NMDS_wUnifrac", genus=genus)$p_1spec 
+}
+#wrap_plots(p_list, ncol=3) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_NMDS_wUnifrac.png", sep=""), 
+       p1 + p5 +  p2 + p4 + p6 + p3 + plot_layout(guides = 'collect'), 
+       width=27, height=15)
+
+
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_NMDS_wUnifrac_withGenus.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+
+### TSNE
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse, "TSNE", sd_threshold=5, rank_dominance="Family")
+PartHsd_TSNE <- pp$Participants_high_sd
+p1 <- pp$p_gruppe 
+p2 <- pp$p_topdom
+p3 <- plot_ordination(tse, "TSNE", sd_threshold=5, rank_dominance="Genus")$p_topdom
+p4 <- pp$p_inter_treat 
+p5 <- pp$p_part 
+p6 <- pp$p_hv_part
+
+#(p1 + p5 +  p2) / (p4 + p6 + p3) + plot_layout(guides = 'collect')
+```
+
+```{r fig.height=9, fig.width=14, message=FALSE, paged.print=FALSE}
+p3
+```
+
+```{r fig.height=24, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium","Clostridia_unclassified", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Clostridium", "Coprococcus", "Faecalibacterium", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse, "TSNE", genus=genus)$p_1spec 
+}
+#wrap_plots(p_list, ncol=3) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_TSNE.png", sep=""),
+       p1 + p5 +  p2 + p4 + p6 + p3 + plot_layout(guides = 'collect'), 
+       width=27, height=15)
+
+
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_TSNE_withGenus.png", sep=""),
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+
+### UMAP
+
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE}
+pp <- plot_ordination(tse, "UMAP", sd_threshold=1.4, rank_dominance="Family")
+PartHsd_UMAP <- pp$Participants_high_sd
+p1 <- pp$p_gruppe #850*550
+p2 <- pp$p_topdom
+p3 <- plot_ordination(tse, "UMAP", sd_threshold=1.4, rank_dominance="Genus")$p_topdom #1100*550
+p4 <- pp$p_inter_treat #900*550
+p5 <- pp$p_part #900*550
+p6 <- pp$p_hv_part
+
+#(p1 + p5 +  p2) / (p4 + p6 + p3) + plot_layout(guides = 'collect')
+```
+
+```{r fig.height=9, fig.width=14, message=FALSE, paged.print=FALSE}
+p3
+```
+
+```{r fig.height=24, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium","Clostridia_unclassified", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Clostridium", "Coprococcus", "Faecalibacterium", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse, "UMAP", genus=genus)$p_1spec 
+}
+#wrap_plots(p_list, ncol=3) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_UMAP.png", sep=""),
+       p1 + p5 +  p2 + p4 + p6 + p3 + plot_layout(guides = 'collect'), 
+       width=27, height=15)
+
+
+ggsave(paste(path_analysis, "Plots/Ordination_plots/sp_UMAP_withGenus.png", sep=""),
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+```{r}
+df_list <- list(PartHsd_PCoA_BC,  PartHsd_PCoA_wUnifrac,
+                PartHsd_NMDS_BC, PartHsd_NMDS_wUnifrac,
+                PartHsd_TSNE, PartHsd_UMAP)
+PartHsd <- df_list %>% purrr::reduce(dplyr::full_join, by='Participant_ID')
+PartHsd <- PartHsd[order(PartHsd$Participant_ID),]
+PartHsd <- dplyr::left_join(PartHsd, as.data.frame(subset(colData(tse), Timepoint=="T2")[, c(1,4:6)]), by="Participant_ID")   
+
+
+flextable(PartHsd)
+```
+
+
+```{r paged.print=FALSE}
+PartHsd$TotalOut <- rowSums(!is.na(PartHsd[, 2:(length(df_list)+1)]))
+
+flextable(subset(PartHsd, TotalOut>=3))
+```
+  
+# Alpha diversity on Species space, unfiltered
+
+
+
+
+- **Richness** refers to the number of species in a sample:
+  - **`r colorize("Observed richness", "#02a0c8")`**: number of observed species $S$
+    - the most sensitive to the difference in sampling effort, since it weights all species equally independent from their relative abundances
+  - **`r colorize("Chao1", "#02a0c8")`** assumes that rare species carry information about the (unknown) number of unobserved species. 
+    - $S_{Chao1} = S + \frac{n_1(n_1 - 1)}{2(n_2 + 1)}$ with $S$ the total number of observed species, $n_1$ singletons and $n_2$ doubletons
+    - Cannot be computed on relative abundance, needs counts values
+- **Evenness** refers to the distribution of the species in the sample: how similar the abundances of the different species are.
+  - **`r colorize("Pielou", "#02a0c8")`** corresponds to the Shannon diversity index normalized by the observed richness: $H/ln(S)$
+  - **`r colorize("Simpson evenness", "#02a0c8")`** corresponds to the inverse Simpson diversity normalized by the observed richness $Sim/S$.
+- **Diversity** indices measure the overall community heterogeneity depending on both species richness and evenness.
+  - **`r colorize("Hill coefficient", "#02a0c8")`** combines many standard indices into a single equation 
+    - indicates the number of species whose even distribution would lead to the same diversity than the observed community, where the species abundances are unevenly distributed.
+  - **`r colorize("Shannon", "#02a0c8")`**  
+    - $H=-\sum^S_{i=1}p_iln(p_i)$ with $S$ total number of species, $p_i$ proportion of species $i$
+  - **`r colorize("Inverse Simpson", "#02a0c8")`**  
+    - $Sim=1/\sum p_i^2$ with $p_i$ proportion of species $i$  
+- **Phylogenetic diversity** incorporates information from phylogenetic relationships between species in the sample. 
+  - **`r colorize("Faith's Phylogenetic diversity", "#02a0c8")`** measures how long the taxonomic distance is between taxa that are present in the sample. 
+    - sum of branch length of all species in a sample. Larger values represent higher diversity.
+- **Dominance** are in general negatively correlated with diversity. High dominance is obtained when one or few species have a high share of the total species abundance in the sample.
+  - **`r colorize("dbp", "#02a0c8")`**: relative abundance of the most abundant species of the sample 
+    - $R=N_1/N_{tot}$, with $N_1$ the absolute abundance of the most dominant species and $N_{tot}$ the sum of absolute abundances of all species in the sample. 
+    - Note: here as the value are already relative, this measure correspond simply to the absolute index $N_1$ (abundance of the most dominant species) / 100
+  - **`r colorize("Core abundance", "#02a0c8")`**: relative abundance of core species species in the sample  
+    - $N_{core}/N_{tot}$, with $N_{core}$ the absolute abundance of core species and $N_{tot}$ the sum of absolute abundances of all species in the sample. 
+    - Core species are defined as those species that have prevalence over 50 in the dataset.
+- **Rarity** indices characterize the concentration of taxa at low abundance.
+  - **`r colorize("Log modulo skewness", "#02a0c8")`** quantifies the concentration of the least abundant species by the log-modulo skewness of the arithmetic abundance classes
+- **Divergence** quantifies heterogeneity within a sample by the average sample dissimilarity with a given reference sample.
+  - compute distance of each samples against one reference (here median)
+
+
+
+```{r}
+tse <- estimateRichness(tse, assay_name = "relabundance", index = c( "hill", "observed"), name=c( "Hill", "Observed"))
+tse <- estimateEvenness(tse, assay_name = "relabundance", index=c( "pielou", "simpson_evenness"), name =   c("Pielou", "Simpson_evenness"))
+tse <- estimateDiversity(tse, assay_name = "relabundance", index = c("shannon", "inverse_simpson") , name = c("Shannon", "Inverse_Simpson"))
+tse <- estimateFaith(tse, assay_name = "relabundance", tree=rowTree(tse), name = "Faith")
+tse <- estimateDominance(tse, assay_name = "relabundance", index=c("dbp", "core_abundance"), name = c("dbp", "Core_abundance"))
+tse <- estimateDiversity(tse, assay_name = "relabundance", index = "log_modulo_skewness", name = "Log_modulo_skewness") # rarity
+tse <- estimateDivergence(tse, assay_name = "relabundance", reference = "median", FUN = vegan::vegdist, name="Divergence_to_median") 
+```
+
+## Saving tse
+```{r}
+save(tse, tse_sub, tse_SGB, file=paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
+# data with ordination and alpha diversity 
+# To keep same ordination (ran on Computer office)
+```
+
+## Plots
+
+```{r fig.height=4, fig.width=15}
+# For presentation
+measures <- c("Observed", "Shannon", "Pielou", "Divergence_to_median")
+subtitle <- c("Measure of richness", "Measure of diversity", "Measure of Evenness", "Measure of divergence")
+
+pp_list <- list()
+for(i in seq(length(measures))){
+  pp_list[[i]] <- plot_sample_measure_CO(tse, measures[i], subtitle[i], print_table=F)
+}
+wrap_plots(pp_list, ncol=4) # 1300*330
+```
+
+
+
+```{r}
+measures <- c("Observed", "Pielou", "Simpson_evenness", "Shannon", "Inverse_Simpson", "Faith", "dbp", "Core_abundance", "Log_modulo_skewness", "Divergence_to_median")
+subtitle <- c("Measure of richness", "Measure of Evenness", "Measure of Evenness", "Measure of diversity", "Measure of diversity", "Measure of Phylogenetic diversity", "Measure of Dominance", "Measure of Dominance", "Measure of rarity", "Measure of divergence")
+
+pp_list <- list()
+for(i in seq(length(measures))){
+  pp_list[[i]] <- plot_sample_measure_CO(tse, measures[i], subtitle[i])
+}
+```
+
+```{r fig.height=12, fig.width=14}
+wrap_plots(pp_list[1:6], nrow=3) 
+```
+
+
+```{r fig.height=8, fig.width=14}
+wrap_plots(pp_list[7:10], nrow=2) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "ResultsAlpha/Alpha_byTreat.png", sep=""), wrap_plots(pp_list, nrow=3), width=27, height = 12)
+```
+
+
+```{r}
+measures <- c("Observed", "Pielou", "Simpson_evenness", "Shannon", "Inverse_Simpson", "Faith", "dbp", "Core_abundance", "Log_modulo_skewness", "Divergence_to_median")
+subtitle <- c("Measure of richness", "Measure of Evenness", "Measure of Evenness", "Measure of diversity", "Measure of diversity", "Measure of Phylogenetic diversity", "Measure of Dominance", "Measure of Dominance", "Measure of rarity", "Measure of divergence")
+
+pp_list <- list()
+for(i in seq(length(measures))){
+  pp_list[[i]] <- plot_sample_measure_CO(tse, measures[i], subtitle[i], x="Timepoint", colorInter = T, print_table=F)
+}
+```
+
+```{r fig.height=12, fig.width=12}
+wrap_plots(pp_list[1:6], nrow=3) 
+```
+
+```{r fig.height=8, fig.width=12}
+wrap_plots(pp_list[7:10], nrow=2) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "ResultsAlpha/Alpha_byTime.png", sep=""), wrap_plots(pp_list, nrow=3), width=20, height = 12)
+```
+
+## Models
+
+### no transformation
+
+```{r paged.print=FALSE}
+DF <- as.data.frame(colData(tse))
+DF_subs <- prepare_DATA(DF, NULL)
+measures_noTrans <- measures
+
+
+groupvars <- c("B", "T", "C1", "C2", "(1|Participant_ID)")
+
+res_After <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF, compar_var = "T",
+                       savingName = "Model_full", plot_res=T,
+                       path=paste(path_analysis, "Rosner_Model_noTrans/", sep=""))
+
+
+## Model 3-4
+groupvars <- c("B", "P", "(1|Participant_ID)")
+res_Yogurt  <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF_int1, compar_var = "B",
+                         savingName = "Model_Yogurt", plot_res=T,
+                         path=paste(path_analysis, "Rosner_Model_noTrans/", sep=""))
+
+res_YogurtOatmeal <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF_int2, compar_var = "B",
+                               savingName = "Model_YogurtOatmeal", plot_res=T,
+                               path=paste(path_analysis, "Rosner_Model_noTrans/", sep=""))
+
+
+save(res_After, res_Yogurt, res_YogurtOatmeal, file=paste(path_analysis, "ResultsAlpha/Alpha_noTrans.rdata", sep=""))
+```
+
+
+
+
+```{r paged.print=FALSE}
+inf_points_obs <- read.xlsx(file=paste(path_analysis , "ResultsAlpha/Rosner_Model_noTrans/Model_full_results.xlsx", sep=""), sheetName="inf_obs_all")
+inf_points_obs$NA. <- NULL
+#inf_points_obs <- res_After[["inf_obs_all"]]
+
+inf_points_obs <- inf_points_obs[order(inf_points_obs$cooksd, decreasing=T),]
+inf_points_obs[1:10,]
+```
+
+```{r paged.print=FALSE}
+inf_points <- read.xlsx(file=paste(path_analysis , "ResultsAlpha/Rosner_Model_noTrans/Model_full_results.xlsx", sep=""), sheetName="inf_part_all")
+inf_points$NA. <- NULL
+# inf_points <- res_After[["inf_part_all"]]
+
+inf_points <- inf_points[order(inf_points$cooksd, decreasing=T),]
+inf_points[1:10,]
+```
+
+
+```{r fig.height=12, fig.width=15, warning=FALSE}
+Inf_point <- merge(DF, inf_points[, c("Participant_ID", "outcome_i")], by=c("Participant_ID"))
+sub <- split(Inf_point, Inf_point$outcome_i)
+sub <- sub[measures_noTrans] #reorder to correspond to trans
+# sub[sapply(sub, is.null)] <- NULL # if no outliers detected for one or more measures
+
+ll_plot <- list()
+for(i in seq(length(sub))){
+  ll_plot[[i]] <- plot_outliers_path(sub[[i]], DF, names(sub[i]), "", x="Timepoint", colorInter = T, print_table=F, trans = NULL, line_diff = T)
+}
+
+wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") 
+
+```
+
+### no transformation  + covariate
+
+3 participants (ID071, ID090, ID113) are removed of the analysis as we do not have their BMI information.
+
+```{r paged.print=FALSE}
+DF <- as.data.frame(colData(tse))
+DF_subs <- prepare_DATA(DF, NULL)
+measures_noTrans <- measures
+
+
+groupvars <- c("B", "T", "C1", "C2",  "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
+
+res_After <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF, compar_var = "T",
+                       savingName = "Model_full", plot_res=T,
+                       path=paste(path_analysis, "Rosner_Model_noTrans_cov/", sep=""))
+
+```
+
+
+```{r paged.print=FALSE}
+inf_points_obs <- read.xlsx(file=paste(path_analysis , "ResultsAlpha/Rosner_Model_noTrans_cov/Model_full_results.xlsx", sep=""), sheetName="inf_obs_all")
+inf_points_obs$NA. <- NULL
+
+# inf_points_obs <- res_After[["inf_obs_all"]]
+inf_points_obs <- inf_points_obs[order(inf_points_obs$cooksd, decreasing=T),]
+inf_points_obs[1:10,]
+```
+
+```{r paged.print=FALSE}
+inf_points <- read.xlsx(file=paste(path_analysis , "ResultsAlpha/Rosner_Model_noTrans_cov/Model_full_results.xlsx", sep=""), sheetName="inf_part_all")
+inf_points$NA. <- NULL
+
+# inf_points <- res_After[["inf_part_all"]]
+inf_points <- inf_points[order(inf_points$cooksd, decreasing=T),]
+inf_points[1:10,]
+```
+
+
+
+
+```{r fig.height=12, fig.width=15, warning=FALSE}
+Inf_point <- merge(DF, inf_points[, c("Participant_ID", "outcome_i")], by=c("Participant_ID"))
+sub <- split(Inf_point, Inf_point$outcome_i)
+sub <- sub[measures_noTrans] #reorder to correspond to trans
+sub[sapply(sub, is.null)] <- NULL # if no outliers detected for one or more measures
+
+ll_plot <- list()
+for(i in seq(length(sub))){
+  ll_plot[[i]] <- plot_outliers_path(sub[[i]], DF, names(sub[i]), "", x="Timepoint", colorInter = T, print_table=F, trans = NULL, line_diff = T)
+}
+
+wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") 
+
+```
+
+### transformation + covariates
+
+After checking residuals from Rosner_Model_noTrans:
+
+
+* Core_abundance:
+  * heteroscedasticity toward small values bc
+* dbp:
+  * heteroscedasticity bc
+* Divergence_to_median 
+  * skewed to the right
+* Faith
+  * ok
+* Inverse_Simpson
+  * small heteroscdasticity
+* Log_modulo_skewness
+   * heteroscedasticity toward small values bc
+* Observed
+  * small heteroscdasticity
+* Pielou
+  *  skewed to the left
+* Shannon
+  *  skewed to the left
+* Simpson_evenness
+  * ok
+
+
+```{r paged.print=FALSE}
+### saved in Rosner_Model_Trans_cov
+DF <- as.data.frame(colData(tse))
+
+# transformation
+trans_analysis <- c("bc", "bc", "", "bc", "bc", "", "bc", "bc", "bc", "bc")
+names(trans_analysis) <- measures
+data.frame(trans_analysis)
+```
+
+
+```{r}
+DF_subs <- prepare_DATA(DF, trans_analysis)
+measures_Trans <- sapply(names(trans_analysis), function(x) if(trans_analysis[[x]] !="") paste(x, trans_analysis[[x]], sep="_") else x)
+```
+
+```{r paged.print=FALSE}
+
+groupvars <- c("B", "T", "C1", "C2",  "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
+
+res_After <- run_model(measures_Trans, groupvars, DF=DF_subs$DF, compar_var = "T",
+                       savingName = "Model_full", plot_res=T,
+                       path=paste(path_analysis, "Rosner_Model_Trans_cov/", sep=""))
+
+## Model 3-4
+groupvars <- c("B", "P",  "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
+res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int1, compar_var = "B",
+                         savingName = "Model_Yogurt", plot_res=T,
+                         path=paste(path_analysis, "Rosner_Model_Trans_cov/", sep=""))
+
+res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int2, compar_var = "B",
+                               savingName = "Model_YogurtOatmeal", plot_res=T,
+                               path="ResultsTaxonomy/Rosner_Model_Trans_cov/")
+```
+
+
+```{r}
+### newest model saved in lmer_Trans_cov/
+### same results than Rosner_Model_Trans_cov/ but better plots and results presentation
+
+#### Model full
+compar_var = "T"
+DF_work=DF_subs$DF
+compa = "full"
+FE <- c("B", "T", "C1", "C2", "Alter", "BMI", "Geschlecht")
+RE <- "Participant_ID"
+
+#### Model Y
+compar_var = "B"
+DF_work=DF_subs$DF_int1
+compa = "Y"
+FE <- c("B", "P", "Alter", "BMI", "Geschlecht")
+RE <- "Participant_ID"
+
+#### Model YO
+compar_var = "B"
+DF_work=DF_subs$DF_int2
+compa = "YO"
+FE <- c("B", "P", "Alter", "BMI", "Geschlecht")
+RE <- "Participant_ID"
+```
+
+
+```{r}
+sig_threshold <- 0.05
+wd0 <- paste(path_analysis, "ResultsAlpha/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("lmer", compa, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
+               path=paste("lmer_Trans_cov/", compa, "/", sep=""),
+               verbose=F)
+
+```
+
+
+
+### transformation no covariates
+
+```{r}
+### saved in Rosner_Model_Trans
+# same DF and measures_Trans as defined in previous section
+```
+
+```{r paged.print=FALSE}
+
+groupvars <- c("B", "T", "C1", "C2", "(1|Participant_ID)")
+
+res_After <- run_model(measures_Trans, groupvars, DF=DF_subs$DF, compar_var = "T",
+                       savingName = "Model_full", plot_res=T,
+                       path= "ResultsTaxonomy/Rosner_Model_Trans/")
+
+## Model 3-4
+groupvars <- c("B", "P", "(1|Participant_ID)")
+res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int1, compar_var = "B",
+                         savingName = "Model_Yogurt", plot_res=T,
+                         path= "ResultsTaxonomy/Rosner_Model_Trans/")
+
+res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int2, compar_var = "B",
+                               savingName = "Model_YogurtOatmeal", plot_res=T,
+                               path= "ResultsTaxonomy/Rosner_Model_Trans/")
+```
+
+
+```{r}
+### newest model saved in lmer_Trans/
+### same results than Rosner_Model_Trans/ but better plots and results presentation
+
+#### Model full
+compar_var = "T"
+DF_work=DF_subs$DF
+compa = "full"
+FE <- c("B", "T", "C1", "C2")
+RE <- "Participant_ID"
+
+#### Model Y
+compar_var = "B"
+DF_work=DF_subs$DF_int1
+compa = "Y"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+#### Model YO
+compar_var = "B"
+DF_work=DF_subs$DF_int2
+compa = "YO"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+```
+
+
+
+
+```{r}
+sig_threshold <- 0.05
+wd0 <- paste(path_analysis, "ResultsAlpha/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("lmer", compa, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
+               path=paste("lmer_Trans/", compa, "/", sep=""),
+               verbose=F)
+```
+
+
+# PERMANOVA
+
+
+```{r paged.print=FALSE}
+library(vegan)
+set.seed(1576)
+permanova_euc <- adonis2(t(assay(tse_sub, "relabundance")) ~ Timepoint + Inter_treat + BMI + Alter + Geschlecht,
+                         by = "margin", # each term (here only 'Group') analyzed individually
+                         data = colData(tse_sub),
+                         method = "euclidean",
+                         permutations = 99, 
+                         na.action=na.omit)
+permanova_euc <- as.data.frame(permanova_euc)
+
+
+permanova_bray <- adonis2(t(assay(tse_sub, "relabundance")) ~ Timepoint + Inter_treat + BMI + Alter + Geschlecht,
+                          by = "margin", # each term (here only 'Group') analyzed individually
+                          data = colData(tse_sub),
+                          method = "bray",
+                          permutations = 99, 
+                          na.action=na.omit)
+permanova_bray <- as.data.frame(permanova_bray)
+
+
+df <- data.frame(permanova_euc[,"Pr(>F)", drop=F],
+                 permanova_bray[,"Pr(>F)", drop=F])
+colnames(df) <- c("euclidean", "bray")
+df
+```
+
+
+
+# Bar plots on Species space, unfiltered 
+
+```{r fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+n_taxa <- 50
+cols_mod <- cols
+cols_mod[n_taxa+1] <- "lightgrey"
+  
+
+physeq_SGB_noFact  %>%
+  ps_select(Participant_ID, Inter_treat) %>% 
+  phyloseq::merge_samples(group = "Inter_treat") %>%
+  comp_barplot(tax_level = "SGB", n_taxa = n_taxa, bar_width = 0.9, palette=cols_mod,
+               tax_transform_for_plot="identity", bar_outline_colour = NA, 
+               sample_order=c("Before.Yogurt", "After.Yogurt", "Before.YogurtOatmeal", "After.YogurtOatmeal")) + 
+  labs(x = NULL, y = NULL) + guides(fill = guide_legend(ncol = 1, reverse=TRUE)) +theme(legend.key.size = unit(0.5, 'cm'))
+
+physeq_SGB_noFact  %>%
+  ps_select(Participant_ID, Inter_treat) %>% 
+  phyloseq::merge_samples(group = "Inter_treat") %>%
+  comp_barplot(tax_level = "Species", n_taxa = n_taxa, bar_width = 0.9, palette=cols_mod, 
+               tax_transform_for_plot="identity", bar_outline_colour = NA, 
+               sample_order=c("Before.Yogurt", "After.Yogurt", "Before.YogurtOatmeal", "After.YogurtOatmeal")) + 
+  labs(x = NULL, y = NULL) + guides(fill = guide_legend(ncol = 1, reverse=TRUE)) +theme(legend.key.size = unit(0.5, 'cm'))
+
+
+physeq_SGB_noFact  %>%
+  ps_select(Participant_ID, Inter_treat) %>% 
+  phyloseq::merge_samples(group = "Inter_treat") %>%
+  comp_barplot(tax_level = "Genus", n_taxa = n_taxa, bar_width = 0.9, palette=cols_mod, 
+               tax_transform_for_plot="identity", bar_outline_colour = NA, 
+               sample_order=c("Before.Yogurt", "After.Yogurt", "Before.YogurtOatmeal", "After.YogurtOatmeal")) + 
+  labs(x = NULL, y = NULL) + guides(fill = guide_legend(ncol = 1, reverse=TRUE)) +theme(legend.key.size = unit(0.5, 'cm'))
+
+```
+
+
+```{r fig.height=20, fig.width=20, message=FALSE, warning=FALSE}
+physeq_clust <- physeq %>%
+  ps_filter(Timepoint  == "T1") %>% ps_seriate()
+Parti_ord <- as.character(sample_data(physeq_clust)$Participant_ID)
+sa <- sample_data(physeq)[, c("Participant_ID", "Sample_ID")]
+Sample_ord <- sa[order(factor(sa$Participant_ID, levels=Parti_ord)), ]$Sample_ID
+
+physeq_SGB %>%
+  comp_barplot("SGB", facet_by  = "Inter_treat", n_taxa = n_taxa, sample_order =Sample_ord,  label = "Participant_ID", bar_outline_colour=NA, bar_width=0.9, tax_transform_for_plot="identity",  palette=cols_mod, ncol=4)+
+  coord_flip() + guides(fill = guide_legend(ncol = 1))
+
+physeq %>%
+  comp_barplot("Species", facet_by  = "Inter_treat", n_taxa = n_taxa, sample_order =Sample_ord,  label = "Participant_ID", bar_outline_colour=NA, bar_width=0.9, tax_transform_for_plot="identity",  palette=cols_mod, ncol=4)+
+  coord_flip() + guides(fill = guide_legend(ncol = 1))
+
+physeq %>%
+  comp_barplot("Genus", facet_by  = "Inter_treat", n_taxa = n_taxa, sample_order =Sample_ord,  label = "Participant_ID", bar_outline_colour=NA, bar_width=0.9, tax_transform_for_plot="identity",  palette=cols_mod, ncol=4)+
+  coord_flip() + guides(fill = guide_legend(ncol = 1))
+
+physeq %>%
+  comp_barplot("Family", facet_by  = "Inter_treat", n_taxa = n_taxa, sample_order =Sample_ord,  label = "Participant_ID", bar_outline_colour=NA, bar_width=0.9, tax_transform_for_plot="identity",  palette=cols_mod, ncol=4)+
+  coord_flip() + guides(fill = guide_legend(ncol = 1))
+```
+
+```{r fig.height=8, fig.width=15, message=FALSE}
+taxa <- c("Streptococcus_thermophilus", "Lactobacillus_delbrueckii")
+
+pp_list <- list()
+pp_list2 <- list()
+for(i in seq(length(taxa))){
+  
+  colData(tse)$abundance <- getAbundanceFeature(tse, feature_id = paste("Species:", taxa[i],sep=""), assay.type = "relabundance")
+  pp_list[[i]] <- plot_sample_measure_CO(tse, "abundance", taxa[i],  x="Timepoint", colorInter = T, trans = "psdlog", print_table = F)  
+  pp_list2[[i]] <- plot_sample_measure_CO(tse, "abundance", taxa[i],  trans = "psdlog")  
+}
+
+
+wrap_plots(c(pp_list, pp_list2), nrow=2) 
+```
+
+
+
+
+
+
+
+# Beta diversity
+
+## transformation + covariates
+
+```{r message=FALSE}
+# tse_sub2 <- subsetByPrevalentTaxa(tse_sub, detection = 0, prevalence = 0.2, assay_name="relabundance") # 335 438 
+tse_sub2 <- tse_sub
+assay_t <- t(assays(tse_sub2)[["relabundance"]]) %>% as.data.frame()
+colnames(assay_t) <- gsub("Species:", "", colnames(assay_t))
+taxa <- colnames(assay_t)
+assay_t$Sample_ID <- rownames(assay_t)
+metadata <- as.data.frame(colData(tse_sub2))
+DF <- merge(metadata, assay_t, by="Sample_ID")
+DF_subs <- prepare_DATA(DF, NULL)
+```
+
+
+```{r}
+#### Model full
+compar_var = "T"
+DF_work=DF_subs$DF
+compa = "full"
+FE <- c("B", "T", "C1", "C2", "Geschlecht", "Alter")
+RE <- "Participant_ID"
+
+#### Model Y
+compar_var = "B"
+DF_work=DF_subs$DF_int1
+compa = "Y"
+FE <- c("B", "P", "Geschlecht", "Alter")
+RE <- "Participant_ID"
+
+#### Model YO
+compar_var = "B"
+DF_work=DF_subs$DF_int2
+compa = "YO"
+FE <- c("B", "P", "Geschlecht", "Alter")
+RE <- "Participant_ID"
+
+# taxa <- taxa[1:10]
+```
+
+### NBZIMM ZIG AST
+
+```{r}
+library(NBZIMM)
+```
+
+```{r}
+model <- "NBZIMM_rel_asinsqrt"
+trans <- "_cov"
+sig_threshold <- 0.01
+```
+
+```{r}
+DF_work_mod=DF_work
+DF_work_mod[,taxa] <- asin(sqrt(DF_work_mod[, taxa]/100))
+```
+
+
+```{r}
+tic()
+# ZIG AST
+setwd(paste(path_analysis, "ResultsBetadiv/", sep=""))
+run_taxa_model(taxa, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_rel_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("NBZIMM_rel_asinsqrt_cov/", compa, "/", sep=""))
+toc()
+# Model full: 596.56 sec elapsed 240.58 sec elapsed
+# Model Y: 417.39 sec elapsed 196.39 sec elapsed
+# Model YO: 430.28 sec elapsed 236.4 sec elapsed
+```
+
+
+
+### glmmTMB CPLM
+
+```{r}
+model <- "glmmTMB_rel"
+trans <- "_cov"
+sig_threshold <- 0.01
+```
+
+```{r}
+DF_work_mod=DF_work
+```
+
+```{r}
+# Model full: R stop at taxa 15: remove the taxa
+# taxa <- taxa[-which(taxa %in% c("Lachnospiraceae_bacterium"))]
+```
+
+```{r}
+tic()
+# CPLM
+setwd(paste(path_analysis, "ResultsBetadiv/", sep=""))
+run_taxa_model(taxa, package="glmmTMB", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("glmmTMB_rel_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("glmmTMB_rel_cov/", compa, "/", sep=""))
+toc()
+# Model full: 711.17 sec elapsed
+# Model Y: 636.08 sec elapsed
+# Model YO: 1007.6 sec elapsed 767.66 sec elapsed
+```
+
+
+
+## transformation no covariates
+
+```{r}
+### saved in Rosner_Model_Trans
+# same DF and measures_Trans as defined in previous section
+```
+
+
+```{r}
+#### Model full
+compar_var = "T"
+DF_work=DF_subs$DF
+compa = "full"
+FE <- c("B", "T", "C1", "C2")
+RE <- "Participant_ID"
+
+#### Model Y
+compar_var = "B"
+DF_work=DF_subs$DF_int1
+compa = "Y"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+#### Model YO
+compar_var = "B"
+DF_work=DF_subs$DF_int2
+compa = "YO"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+```
+
+### NBZIMM ZIG AST
+
+```{r}
+library(NBZIMM)
+```
+
+```{r}
+model <- "NBZIMM_rel_asinsqrt"
+trans <- ""
+sig_threshold <- 0.01
+```
+
+```{r}
+DF_work_mod=DF_work
+DF_work_mod[,taxa] <- asin(sqrt(DF_work_mod[, taxa]/100))
+```
+
+
+```{r}
+tic()
+# ZIG AST
+setwd(paste(path_analysis, "ResultsBetadiv/", sep=""))
+run_taxa_model(taxa, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_rel_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("NBZIMM_rel_asinsqrt/", compa, "/", sep=""))
+toc()
+# Model full: 596.56 sec elapsed 240.58 sec elapsed
+# Model Y: 417.39 sec elapsed 196.39 sec elapsed
+# Model YO: 430.28 sec elapsed 236.4 sec elapsed
+```
+
+
+
+### glmmTMB CPLM
+
+
+
+```{r}
+model <- "glmmTMB_rel"
+trans <- ""
+sig_threshold <- 0.01
+```
+
+```{r}
+DF_work_mod=DF_work
+```
+
+```{r}
+# Model full: R stop at taxa 15: remove the taxa
+# taxa <- taxa[-which(taxa %in% c("Lachnospiraceae_bacterium"))]
+```
+
+```{r}
+tic()
+# CPLM
+setwd(paste(path_analysis, "ResultsBetadiv/", sep=""))
+run_taxa_model(taxa, package="glmmTMB", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("glmmTMB_rel_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("glmmTMB_rel/", compa, "/", sep=""))
+toc()
+# Model full: 
+# Model Y: 624.98 sec elapsed
+# Model YO: 
+```
+
+
+#### Maaslin
+```{r}
+library(Maaslin2)
+#Maaslin2
+```
+
+
+```{r}
+#### Model Y
+compar_var = "B"
+DF_work=DF_subs$DF_int1
+compa = "Y"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+```
+
+```{r}
+fit_data_Y <- Maaslin2(
+  DF_work[, taxa],
+  DF_work[, c(1:11, 711:715)],
+  output = "Maaslin2 Yogurt",
+  fixed_effects = FE,
+  random_effects = RE, 
+  normalization = "NONE",
+  min_prevalence = 0 
+)
+```
+
+
+## Redo important plots
+```{r}
+#### need to specify the following parameters from models defined above:
+# compar_var = 
+# compa = 
+# FE <- 
+# RE <- 
+# model <- 
+# DF_work_mod <-
+```
+
+
+```{r}
+### REDO all plots at new sig_threshold
+## Careful to have the correct DF_work_mod!! 
+
+sig_threshold <- 0.03
+
+path <- paste(path_analysis, "ResultsBetadiv/", model, trans, "/", compa,"/", sep="")
+res_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="res_all")
+res_anov_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="res_anov_all")
+PRS_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="PRS_all")
+
+savingName=paste(model, "_", compa, sep="")
+log_file <- file.path(path, "run_taxa_model.log")
+logging::addHandler(logging::writeToFile, file = log_file, level = "DEBUG")
+logging::logdebug("recreate plots with sig_threshold: %s", sig_threshold)
+
+plot_results(res_all, res_anov_all, PRS_all, DF=DF_work_mod, FE, sig_threshold, savingName, path)
+```
+
+
+```{r}
+### REDO Forest plot for better size
+path <- paste(path_analysis, "ResultsBetadiv/", model, trans, "/", compa,"/", sep="")
+res_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="res_all")
+sig_res_all <- subset(res_all, p.value < sig_threshold) 
+
+
+sig_res_all$color <- case_when(sig_res_all$q.value < 0.05 ~  "q.val<0.05",
+                               sig_res_all$q.value >= 0.05 ~ "q.val>=0.05")
+var <- unique(sig_res_all$names)
+ll_plot <- list()
+for(i in seq(var)){
+  sub <- subset(sig_res_all, names==var[i])
+  sub$feature <- factor(sub$feature, levels = rev(sub$feature))
+  pp <- ggplot(sub, aes(x=est, y=feature)) +  geom_point(size=1.2, aes(color=color)) +
+    scale_colour_manual(values= c(`q.val>=0.05`="black", `q.val<0.05`="#2196F3"))+
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40", linewidth=0.5) + 
+    xlab("effect size") + ylab("") + ggtitle(var[i]) + theme_minimal()
+  if(all(is.na(sub$ci_low))) ll_plot[[i]] <- pp
+  else  ll_plot[[i]] <- pp + geom_errorbar(aes(x = est, xmin = ci_low, xmax = ci_high, 
+                                               color=color), width = 0.2, linewidth=0.5) 
+}
+
+savingName <- paste(model, "_", compa, "_res_all_betterSize", sep="")
+ggsave_adaptSize(paste(path, savingName, ".png", sep=""), ll_plot, unit_width=5, unit_height=6)
+```
+
+
+
+```{r}
+### Forest plot on PRS results
+path <- paste(path_analysis, "ResultsBetadiv/", model, trans, "/", compa,"/", sep="")
+PRS_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="PRS_all")
+sig_res_PRS <- subset(PRS_all, p.value < sig_threshold) 
+
+# Try to compute Log2FC
+# sig_res_PRS$estimate <- sin(sig_res_PRS$estimate)^2*100
+# sig_res_PRS$lower.CL <- sin(sig_res_PRS$lower.CL)^2*100
+# sig_res_PRS$upper.CL <- sin(sig_res_PRS$upper.CL)^2*100
+
+# sig_res_PRS$estimate <- log2(exp(sig_res_PRS$estimate))
+# sig_res_PRS$lower.CL <- log2(exp(sig_res_PRS$lower.CL))
+# sig_res_PRS$upper.CL <- log2(exp(sig_res_PRS$upper.CL))
+# NOT CORRECT: Differences can not be back transformed except for log transformation
+# see http://derekogle.com/Book207/ANOVA1Transformations.html#interpretations-after-transformations
+
+sig_res_PRS$color <- case_when(sig_res_PRS$q.value < 0.05 ~  "q.val<0.05",
+                               sig_res_PRS$q.value >= 0.05 ~ "q.val>=0.05")
+sig_res_PRS$feature <- factor(sig_res_PRS$feature, levels = rev(sig_res_PRS$feature))
+
+if(compar_var == "B") xlab <- "After - Baseline"
+if(compar_var == "T") xlab <- "After_YogurtOatmeal - Other"
+
+pp <- ggplot(sig_res_PRS, aes(x=estimate, y=feature)) + geom_point(size=1.2, aes(color=color)) +
+    scale_colour_manual(values= c(`q.val>=0.05`="black", `q.val<0.05`="#2196F3"))+
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40", linewidth=0.5) + 
+    xlab(xlab) + ylab("") + theme_minimal()
+pp  <- pp + geom_errorbar(aes(x = estimate, xmin = lower.CL, xmax = upper.CL, 
+                                               color=color), width = 0.2, linewidth=0.5) 
+
+savingName <- paste(model, "_", compa, "_res_PRS", sep="")
+ggsave(paste(path, savingName, ".png", sep=""), pp, width=6, height=6)
+```
+
+
+```{r}
+# Print taxa plot for significant taxa in model full for better visualization
+path <- paste(path_analysis, "ResultsBetadiv/", model, trans, "/full/", sep="")
+PRS_all <- read.xlsx(file=paste(path, model, "_full_results.xlsx", sep="") , sheetName="PRS_all")
+sig_res_PRS <- subset(PRS_all, p.value < sig_threshold) 
+
+taxa_to_plot <- sig_res_PRS$feature
+DF_work_mod=DF_subs$DF
+DF_work_mod[,taxa] <- asin(sqrt(DF_work_mod[, taxa]/100))
+
+
+for(i in seq(length(taxa_to_plot))){
+  taxa_to_plot_i <- taxa_to_plot[i]
+  
+  p_rel <- plot_taxa_variable(taxa_to_plot_i, DF_work_mod, counts=F)
+  
+  name_plot <- taxa_to_plot_i
+  if(nchar(name_plot) > 28) name_plot <- substr(name_plot, 1, 28)
+  
+  ggsave(paste(path, model, "/full/Plots/Plot_PRStaxa/", i, "_", name_plot, ".png", sep=""),
+         p_rel+ plot_annotation(title = taxa_to_plot_i), 
+         width=10, height=10)
+}
+```
+
+
+
+```{r}
+# outcomes <- taxa[1:2]
+# package="NBZIMM"
+# model=NULL
+# counts=F
+# FE=FE
+# RE=RE
+# DF=DF_work_mod
+# compar_var=compar_var
+# var_check=NULL
+# savingName=paste("NBZIMM_", compa, sep="")
+# sig_threshold=0.01
+# check_mod=F
+# save_mod=F
+# path=NULL
+# verbose=F
+# save_final_files=T
+# trans_plot = "psd_log"
+# i=1
+```
+
+
+
+## Reproduce final excel files after filtering taxa depending on prevalence
+
+```{r}
+#### need to define the following parameters:
+prev_treshold <- 0.2
+
+
+## From models defined above:
+# compa = 
+
+# model <- 
+# trans <- 
+
+# savingName <- 
+```
+
+
+```{r}
+path <- paste(path_analysis, "ResultsBetadiv/", model, trans, "/", compa,"/", sep="")
+res_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="res_all")
+res_anov_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="res_anov_all")
+PRS_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="PRS_all")
+
+PRS_all_sub <- subset(PRS_all, prev>=prev_treshold)
+kept_taxa <- PRS_all_sub$feature
+res_anov_all_sub <- subset(res_anov_all, feature %in% kept_taxa)
+res_all_sub <- subset(res_all, feature %in% kept_taxa)
+
+PRS_all_sub$q.value <- NULL
+res_anov_all_sub$q.value <- NULL
+res_all_sub$q.value <- NULL
+PRS_all_sub$NA. <- NULL
+res_anov_all_sub$NA. <- NULL
+res_all_sub$NA. <- NULL
+
+PRS_all_sub$q.value <- round(p.adjust(PRS_all_sub$p.value, method="fdr"), 4)
+res_anov_all_sub$q.value <- round(p.adjust(res_anov_all_sub$p.value, method="fdr"), 4)
+res_all_sub$q.value <- round(p.adjust(res_all_sub$p.value, method="fdr"), 4)
+
+
+write.xlsx(res_all_sub, file=paste(path, savingName, "_results_prev", prev_treshold, ".xlsx", sep=""), sheet="res_all")
+write.xlsx(res_anov_all_sub, file=paste(path, savingName, "_results_prev", prev_treshold, ".xlsx", sep=""), sheet="res_anov_all", append = T)
+write.xlsx(PRS_all_sub, file=paste(path, savingName, "_results_prev", prev_treshold, ".xlsx", sep=""), sheet="PRS_all", append = T)
+```
+
+
+
+
+
+
+

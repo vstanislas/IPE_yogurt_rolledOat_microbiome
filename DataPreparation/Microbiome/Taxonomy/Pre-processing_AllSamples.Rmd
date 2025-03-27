@@ -1,0 +1,521 @@
+---
+title: "Pre-processing Taxonomic MetaPhlAn4 All samples - Yogurt study"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+---
+
+
+```{r}
+library(phyloseq)
+library(dplyr)
+library(readxl)
+library(tidyr)
+library(ggplot2)
+library(mia)
+library(microbiome)
+library(patchwork)
+library(ggExtra)
+
+dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
+dir <- paste(dir0, "2206_JoghurtStudy/Analysis/DataPreparation/Microbiome_DATA_Kun_Huang/", sep="")
+
+
+source(file = paste(dir0, "2206_JoghurtStudy/Analysis/Utils.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+```
+
+```{r}
+cols_Inter_treat <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
+```
+
+
+# Loading tables
+## Metadata
+```{r}
+metadata <- read_excel("Metadata.xlsx", sheet=1)
+metadata <- as.data.frame(metadata)
+
+metadata$Sample_ID <- gsub("-", "", metadata$Sample_ID)
+metadata$Treatment <- case_when(metadata$Timepoint %in% c("T1", "T3") ~ "Before",
+                                metadata$Timepoint %in% c("T2", "T4") ~ "After",
+                                TRUE ~ NA_character_)
+metadata$Intervention <- case_when(metadata$Timepoint %in% c("T1", "T2") & metadata$Gruppe == "A" ~ "Yogurt",
+                                   metadata$Timepoint %in% c("T3", "T4") & metadata$Gruppe == "A" ~ "YogurtOatmeal",
+                                   metadata$Timepoint %in% c("T1", "T2") & metadata$Gruppe == "B" ~ "YogurtOatmeal",
+                                   metadata$Timepoint %in% c("T3", "T4") & metadata$Gruppe == "B" ~ "Yogurt",
+                                TRUE ~ NA_character_)
+
+metadata$Inter_treat <- paste(metadata$Treatment, metadata$Intervention, sep=".")
+metadata$Inter_treat <- factor(metadata$Inter_treat, levels = c("Before.Yogurt", "After.Yogurt", "Before.YogurtOatmeal", "After.YogurtOatmeal"), ordered=T)
+metadata$Treatment <- factor(metadata$Treatment, levels = c("Before", "After"), ordered=T)
+metadata$Timepoint <- factor(metadata$Timepoint, levels = c("T1", "T2", "T3", "T4"), ordered=T)
+metadata$Gruppe <- as.factor(metadata$Gruppe)
+metadata$Participant_ID <- as.factor(metadata$Participant_ID)
+metadata$Geschlecht <- as.factor(metadata$Geschlecht)
+metadata$Intervention <- as.factor(metadata$Intervention)
+
+rownames(metadata) <- metadata[, "Sample_ID"]
+```
+
+```{r}
+dim(metadata) # 440   11
+```
+
+
+## Species table
+
+```{r}
+table_rel_sp <- read.table("exp86-freiburg/merged_abundance_table_ALL_species.txt", header=T, row.names = "clade_name")
+table_rel_sp_TAX <- read.table("exp86-freiburg/merged_abundance_table_ALL_species_TAX.txt", header=T, row.names = "clade_name")
+dim(table_rel_sp) #  1378  440
+summary(colSums(table_rel_sp))
+```
+
+
+```{r}
+table_rel_SGB <- read.table("exp86-freiburg/merged_abundance_table_ALL_SGB.txt", header=T, row.names = "clade_name")
+table_rel_SGB_TAX <- read.table("exp86-freiburg/merged_abundance_table_ALL_SGB_TAX.txt", header=T, row.names = "clade_name")
+dim(table_rel_SGB) #  1875  440
+summary(colSums(table_rel_sp))
+
+# Change rownames to fit with the phylogenetic tree
+#rownames(table_rel_SGB) <- gsub('SGB', '', rownames(table_rel_SGB))
+rownames(table_rel_SGB) <- gsub('_group', '', rownames(table_rel_SGB))
+```
+
+
+## Taxonomic description
+```{r}
+taxa_table_sp <- data.frame(rownames(table_rel_sp_TAX))
+taxa_table_sp <- separate(taxa_table_sp, col=1, into=c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"), sep="\\|")
+taxa_table_sp <- gsub('.__', '', as.matrix(taxa_table_sp))
+rownames(taxa_table_sp) <- taxa_table_sp[,"Species"]
+```
+
+```{r}
+taxa_table_SGB <- data.frame(rownames(table_rel_SGB_TAX))
+taxa_table_SGB <- separate(taxa_table_SGB, col=1, into=c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "SGB"), sep="\\|")
+taxa_table_SGB <- gsub('.__', '', as.matrix(taxa_table_SGB))
+rownames(taxa_table_SGB) <- taxa_table_SGB[,"SGB"]
+
+# Change rownames to fit with the phylogenetic tree
+# rownames(taxa_table_SGB) <- gsub('SGB', '', rownames(taxa_table_SGB))
+rownames(taxa_table_SGB) <- gsub('_group', '', rownames(taxa_table_SGB))
+```
+
+
+## Phylogenetic tree
+```{r paged.print=FALSE}
+tree <- read_tree("mpa_vJan21_CHOCOPhlAnSGB_202103.nwk.txt")
+tree$tip.label <- paste("SGB", tree$tip.label, sep="")
+as_tibble(tree)
+```
+
+
+# Creating Phyloseq objects
+
+## physeq_rel_sp
+
+```{r}
+OTU = otu_table(table_rel_sp, taxa_are_rows = TRUE)
+TAX = tax_table(taxa_table_sp)
+SAM = sample_data(metadata)
+dim(OTU)
+```
+
+```{r}
+inters_names <- intersect(colnames(OTU), rownames(metadata))
+cat("Samples present in Metaphlan and absent from Metadata: ")
+colnames(OTU)[!(colnames(OTU) %in% inters_names)]
+
+cat("Samples present in Metadata and absent from Metaphlan: ")
+rownames(metadata)[!(rownames(metadata) %in% inters_names)]
+```
+
+```{r}
+physeq_rel_sp = phyloseq(OTU, TAX, SAM)
+physeq_rel_sp 
+```
+
+
+```{r}
+# Print sample / taxa lost when creating phyloseq object
+if(!ncol(OTU) == ncol(otu_table(physeq_rel_sp))){
+  inters_names <- intersect(colnames(OTU), colnames(otu_table(physeq_rel_sp)))
+  cat("Phyloseq sample lost: ")
+  colnames(OTU)[!(colnames(OTU) %in% inters_names)] %>% print()
+}
+if(!nrow(OTU) == nrow(otu_table(physeq_rel_sp))){
+  inters_names <- intersect(rownames(OTU), rownames(otu_table(physeq_rel_sp)))
+  cat("Phyloseq taxa lost: ")
+  rownames(OTU)[!(rownames(OTU) %in% inters_names)] %>% print()
+}
+```
+
+## physeq_rel_SGB
+```{r message=FALSE}
+OTU = otu_table(table_rel_SGB, taxa_are_rows = TRUE)
+TAX = tax_table(taxa_table_SGB)
+SAM = sample_data(metadata)
+dim(OTU)
+```
+
+```{r}
+inters_names <- intersect(colnames(OTU), rownames(metadata))
+cat("Samples present in Metaphlan and absent from Metadata: ")
+colnames(OTU)[!(colnames(OTU) %in% inters_names)]
+
+cat("Samples present in Metadata and absent from Metaphlan: ")
+rownames(metadata)[!(rownames(metadata) %in% inters_names)]
+```
+
+
+```{r message=FALSE}
+physeq_rel_SGB = phyloseq(OTU, TAX, SAM, tree)
+physeq_rel_SGB
+```
+
+```{r}
+# Print sample / taxa lost when creating phyloseq object
+if(!ncol(OTU) == ncol(otu_table(physeq_rel_SGB))){
+  inters_names <- intersect(colnames(OTU), colnames(otu_table(physeq_rel_SGB)))
+  cat("Phyloseq sample lost: ")
+  colnames(OTU)[!(colnames(OTU) %in% inters_names)] %>% print()
+}
+if(!nrow(OTU) == nrow(otu_table(physeq_rel_SGB))){
+  inters_names <- intersect(rownames(OTU), rownames(otu_table(physeq_rel_SGB)))
+  cat("Phyloseq taxa lost: ")
+  rownames(OTU)[!(rownames(OTU) %in% inters_names)] %>% print()
+}
+```
+
+
+# Filtering
+
+## physeq_rel_sp
+```{r}
+table(tax_table(physeq_rel_sp)[, "Kingdom"])
+```
+
+### Description of the Eukaryota and Archea
+
+```{r paged.print=FALSE}
+# Eukaryota 
+euk <- subset(as.data.frame(tax_table(physeq_rel_sp)), Kingdom=="Eukaryota")$Species
+euk
+```
+
+
+```{r paged.print=FALSE}
+# Archaea  
+arch <- subset(as.data.frame(tax_table(physeq_rel_sp)), Kingdom=="Archaea")$Species
+arch
+```
+
+
+```{r fig.height=10, fig.width=15, message=FALSE, warning=FALSE}
+taxa <- c(euk, arch)
+
+pp_list <- list()
+absum <- abmax <- c()
+DF <- as.data.frame(sample_data(physeq_rel_sp))
+for(i in seq(length(taxa))){
+  
+  DF$abundance <- get_sample(physeq_rel_sp, taxa[i])
+  absum <- c(absum, sum(DF$abundance > 0))
+  abmax <- c(abmax, max(DF$abundance))
+  
+  pp_list[[i]] <- plot_sample_measure_CO(DF, "abundance", taxa[i],  x="Timepoint", colorInter = T, trans = "psd_log", print_table = F)  
+  
+
+}
+
+wrap_plots(pp_list, nrow=3) 
+```
+```{r paged.print=FALSE}
+data.frame(number_samples=absum, maximal_abundance=abmax, row.names = taxa)
+```
+
+### Prevalence and abundance
+```{r}
+rel_ab <- abundances(physeq_rel_sp, transform = "compositional")*100 # Retrieves the taxa x samples table from phyloseq object after additional transformation (here normalisation)
+total_abundance <- rowSums(rel_ab) 
+max_abundance <- apply(rel_ab, 1, max)
+preval <- prevalence(physeq_rel_sp)
+
+thresh_abond=0.01
+thresh_prev= 0.03 
+df <- data.frame(Species= names(total_abundance), total_abundance=total_abundance, max_abundance=max_abundance, preval=preval)
+```
+
+```{r}
+pp <- ggplot(df, aes(max_abundance, preval)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+  geom_vline(xintercept = thresh_abond, color = "red", linetype = "dotted") +
+  geom_hline(yintercept = thresh_prev, color = "red", linetype = "dotted")  + 
+   theme_bw()
+pp1 <- ggMarginal(pp, type="density") 
+
+pp2 <- pp +
+  scale_x_log10(labels = scales::label_number(), name = "Maximum Abundance") +
+  scale_y_log10(
+   labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+   name = "Prevalence (%)")
+pp2 <- ggMarginal(pp2, type="density") 
+```
+
+```{r fig.height=7, fig.width=12}
+wrap_plots(pp1, pp2)
+```
+
+
+
+```{r}
+# Function in Utils_metagenomics.R
+cleanUp1 = phyloseq_CleanUp(physeq_rel_sp, thresh_abond = 0, thresh_prev =0) # Cleaning out non bacterial taxa
+cleanUp2 = phyloseq_CleanUp(physeq_rel_sp, thresh_abond = thresh_abond, thresh_prev = thresh_prev) # Cleaning out non bacterial and low abundant or prevalent taxa 
+```
+
+```{r paged.print=FALSE}
+cleanUp1$df_filt
+```
+
+```{r paged.print=FALSE}
+cleanUp2$df_filt # 1377-662-17 = 698
+```
+
+```{r}
+# Details of the deleted taxa
+deleted_taxa_sp <- as.vector(tax_table(cleanUp2$deleted_taxa)[, "Species"])
+table(tax_table(cleanUp2$deleted_taxa)[, "Kingdom"])
+```
+
+
+```{r}
+physeq_rel_sp_Clean1 = prune_taxa(taxa_sums(cleanUp1$clean_subset) > 0,  cleanUp1$clean_subset)
+physeq_rel_sp_Clean2 = prune_taxa(taxa_sums(cleanUp2$clean_subset) > 0,  cleanUp2$clean_subset)
+#physeq_rel_sp_CleanR = transform_sample_counts(physeq_rel_sp_Clean, function(x) 100 * x/sum(x))
+```
+
+
+```{r}
+rel_ab <- abundances(physeq_rel_sp_Clean2, transform = "identity")
+max_abundance <- apply(rel_ab, 1, max)
+preval <- prevalence(physeq_rel_sp_Clean2)
+df <- data.frame(max_abundance=max_abundance, preval=preval)
+
+pp <- ggplot(df, aes(max_abundance, preval)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+  geom_vline(xintercept = thresh_abond, color = "red", linetype = "dotted") +
+  geom_hline(yintercept = thresh_prev, color = "red", linetype = "dotted")  + 
+   theme_bw() +
+  scale_x_log10(labels = scales::label_number(), name = "Maximum Abundance") +
+  scale_y_log10(
+    labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+    name = "Prevalence (%)") 
+
+pp <- ggMarginal(pp, type="density") 
+```
+
+```{r}
+pp
+```
+
+## physeq_rel_SGB
+```{r}
+table(tax_table(physeq_rel_SGB)[, "Kingdom"])
+```
+
+
+```{r}
+rel_ab <- abundances(physeq_rel_SGB, transform = "compositional")*100
+total_abundance <- rowSums(rel_ab) 
+max_abundance <- apply(rel_ab, 1, max)
+preval <- prevalence(physeq_rel_SGB)
+
+thresh_abond=0.01
+thresh_prev= 0.03
+df <- data.frame(Species= names(total_abundance), total_abundance=total_abundance, max_abundance=max_abundance, preval=preval)
+
+pp <- ggplot(df, aes(max_abundance, preval)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+  geom_vline(xintercept = thresh_abond, color = "red", linetype = "dotted") +
+  geom_hline(yintercept = thresh_prev, color = "red", linetype = "dotted")  + 
+   theme_bw()
+pp1 <- ggMarginal(pp, type="density") 
+
+pp2 <- pp +
+  scale_x_log10(labels = scales::label_number(), name = "Maximum Abundance") +
+  scale_y_log10(
+    labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+    name = "Prevalence (%)") 
+pp2 <- ggMarginal(pp2, type="density") 
+```
+
+
+```{r fig.height=7, fig.width=12}
+wrap_plots(pp1, pp2)
+```
+
+
+```{r message=FALSE}
+# Function in Utils_metagenomics.R
+cleanUp1 = phyloseq_CleanUp(physeq_rel_SGB, thresh_abond = 0, thresh_prev =0) # Cleaning out non bacterial taxa
+cleanUp2 = phyloseq_CleanUp(physeq_rel_SGB, thresh_abond = thresh_abond, thresh_prev = thresh_prev) # Cleaning out non bacterial and low abundant taxa (no filtering on prevalence)
+```
+
+```{r paged.print=FALSE}
+cleanUp1$df_filt
+```
+
+```{r paged.print=FALSE}
+cleanUp2$df_filt
+```
+
+
+```{r}
+deleted_taxa_SGB <- as.vector(tax_table(cleanUp2$deleted_taxa)[, "Species"])
+table(tax_table(cleanUp2$deleted_taxa)[, "Kingdom"])
+```
+
+```{r}
+sum(euk %in% deleted_taxa_sp)
+sum(euk %in% deleted_taxa_SGB)
+length(deleted_taxa_sp)
+sum(deleted_taxa_sp %in% deleted_taxa_SGB) # 677 the same species are deleted in sp and SGB
+```
+
+
+```{r message=FALSE}
+physeq_rel_SGB_Clean1 = prune_taxa(taxa_sums(cleanUp1$clean_subset) > 0,  cleanUp1$clean_subset)
+physeq_rel_SGB_Clean2 = prune_taxa(taxa_sums(cleanUp2$clean_subset) > 0,  cleanUp2$clean_subset)
+```
+
+
+# Normalization 
+
+## Check total number of reads
+
+```{r fig.height=7, fig.width=12, message=FALSE}
+phy_obj <- list(physeq_rel_sp=physeq_rel_sp, physeq_rel_sp_Clean1=physeq_rel_sp_Clean1,
+                physeq_rel_sp_Clean2=physeq_rel_sp_Clean2, 
+                physeq_rel_SGB=physeq_rel_SGB, physeq_rel_SGB_Clean1=physeq_rel_SGB_Clean1,
+                physeq_rel_SGB_Clean2=physeq_rel_SGB_Clean2)
+
+pp_list <- list()
+for(i in seq(length(phy_obj))){
+  phy_obj_i <-phy_obj[[i]]
+  sam <- as(sample_data(phy_obj_i), "data.frame")
+  sam$sum <- sample_sums(phy_obj_i)
+  sam$mean <-colMeans(otu_table(phy_obj_i))
+  
+  pp_list[[i]]  <- ggplot(sam, aes(x = sum)) + 
+    geom_histogram(color = "black", fill = "blue")+  ggtitle("Distribution of sequencing depth") +
+    ggtitle(names(phy_obj[i]))
+}
+wrap_plots(pp_list[1:6], nrow=2) 
+```
+
+
+## Normalization
+
+No need
+
+Not recommended to renormalize after filtering: https://forum.biobakery.org/t/filter-normalize-order-and-comments-on-tutorial/3484
+
+```{r message=FALSE}
+# replace physeq_rel_sp and physeq_rel_SBG by the version with only bacterial taxa
+physeq_rel_spR = transform_sample_counts(physeq_rel_sp_Clean1, function(x) 100 * x/sum(x))
+physeq_rel_SGBR = transform_sample_counts(physeq_rel_SGB_Clean1, function(x) 100 * x/sum(x))
+
+physeq_rel_sp_Clean2R = transform_sample_counts(physeq_rel_sp_Clean2, function(x) 100 * x/sum(x))
+physeq_rel_SGB_Clean2R = transform_sample_counts(physeq_rel_SGB_Clean2, function(x) 100 * x/sum(x))
+```
+
+
+```{r message=FALSE}
+phy_obj <- list(physeq_rel_spR=physeq_rel_spR, physeq_rel_sp_Clean2R=physeq_rel_sp_Clean2R,
+                physeq_rel_SGBR=physeq_rel_SGBR, physeq_rel_SGB_Clean2R=physeq_rel_SGB_Clean2R)
+for(i in seq(length(phy_obj))){
+  phy_obj_i <-phy_obj[[i]]
+  print(summary(sample_sums(phy_obj_i)))
+}
+```
+
+# Tree Summarized Experiment
+
+```{r}
+prepareTSE <- function(phy_obj){
+  
+  tse <- makeTreeSummarizedExperimentFromPhyloseq(phy_obj)
+  
+  # prepare assays
+  mat <- assay(tse, "counts") 
+  colsums <- colSums2(mat, na.rm = TRUE)
+  if(round(max(colsums)-min(colsums), 3) != 0  ){
+    tse <- transformSamples(tse, method = "relabundance") 
+    assays(tse)[["relabundance"]] <- assays(tse)[["relabundance"]] *100
+    assays(tse)[["inputData"]] <- assays(tse)[["counts"]]  
+  }else{
+    assays(tse)[["relabundance"]] <- assays(tse)[["counts"]]
+  }
+  assays(tse)[["counts"]] <- NULL
+  
+  
+  if(is.null(rowTree(tse))){
+    cat("Add tree \n")
+    tse <- addTaxonomyTree(tse)
+  }
+  
+  ## Add log10 transformation
+  tse <- transformFeatures(tse, method = "log10", name = "log10", 
+                           pseudocount = 1, assay_name="relabundance")
+  
+  ## Add CLR transformation
+  mat <- assay(tse, "relabundance") 
+  pseudo <- min(mat[mat>0])
+  tse <- transformSamples(x = tse, assay_name = "relabundance", method = "clr", 
+                            pseudocount = pseudo, name = "clr")
+    
+  
+  return(tse)
+}
+```
+
+
+
+```{r message=FALSE}
+### Unfiltered data (except archea and eukaryote)
+tse <- prepareTSE(physeq_rel_SGBR)
+tse_sp <- prepareTSE(physeq_rel_spR)
+altExp(tse, "Species") <- tse_sp
+```
+
+```{r message=FALSE}
+### filtered data 
+tse_clean <- prepareTSE(physeq_rel_SGB_Clean2)
+tse_sp_clean <- prepareTSE(physeq_rel_sp_Clean2)
+altExp(tse_clean, "Species") <- tse_sp_clean
+```
+
+
+# Saving R object
+
+```{r}
+save(physeq_rel_spR, physeq_rel_SGBR, tse, 
+     file=paste(dir, "Data_cleaned_ALL_unfiltered.Rdata", sep=""))
+
+save(physeq_rel_sp_Clean2, physeq_rel_SGB_Clean2, physeq_rel_sp_Clean2R, physeq_rel_SGB_Clean2R, tse_clean, 
+     file=paste(dir, "Data_cleaned_ALL_filtered.Rdata", sep=""))
+```
+
+
+

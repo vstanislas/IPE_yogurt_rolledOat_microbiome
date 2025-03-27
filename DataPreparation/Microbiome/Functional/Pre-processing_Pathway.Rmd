@@ -1,0 +1,327 @@
+---
+title: "Pre-processing Functional HUMAnN All samples - Yogurt study"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+---
+
+
+
+```{r message=FALSE}
+library(phyloseq)
+library(dplyr)
+library(readxl)
+library(tidyr)
+library(ggplot2)
+library(mia)
+library(microbiome)
+library(patchwork)
+library(ggExtra)
+
+dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
+dir1 <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
+dir <- paste(dir1, "DataPreparation/Microbiome_DATA_Kun_Huang/", sep="")
+
+source(file = paste(dir1, "Utils.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+```
+
+
+
+# Loading tables
+## Metadata
+```{r}
+metadata <- read_excel(paste(dir, "Metadata.xlsx", sep=""), sheet=1)
+metadata <- as.data.frame(metadata)
+
+metadata$Sample_ID <- gsub("-", "", metadata$Sample_ID)
+metadata$Treatment <- case_when(metadata$Timepoint %in% c("T1", "T3") ~ "Before",
+                                metadata$Timepoint %in% c("T2", "T4") ~ "After",
+                                TRUE ~ NA_character_)
+metadata$Intervention <- case_when(metadata$Timepoint %in% c("T1", "T2") & metadata$Gruppe == "A" ~ "Yogurt",
+                                   metadata$Timepoint %in% c("T3", "T4") & metadata$Gruppe == "A" ~ "YogurtOatmeal",
+                                   metadata$Timepoint %in% c("T1", "T2") & metadata$Gruppe == "B" ~ "YogurtOatmeal",
+                                   metadata$Timepoint %in% c("T3", "T4") & metadata$Gruppe == "B" ~ "Yogurt",
+                                TRUE ~ NA_character_)
+
+metadata$Inter_treat <- paste(metadata$Treatment, metadata$Intervention, sep=".")
+metadata$Inter_treat <- factor(metadata$Inter_treat, levels = c("Before.Yogurt", "After.Yogurt", "Before.YogurtOatmeal", "After.YogurtOatmeal"), ordered=T)
+metadata$Treatment <- factor(metadata$Treatment, levels = c("Before", "After"), ordered=T)
+metadata$Timepoint <- factor(metadata$Timepoint, levels = c("T1", "T2", "T3", "T4"), ordered=T)
+metadata$Gruppe <- as.factor(metadata$Gruppe)
+metadata$Participant_ID <- as.factor(metadata$Participant_ID)
+metadata$Geschlecht <- as.factor(metadata$Geschlecht)
+metadata$Intervention <- as.factor(metadata$Intervention)
+
+rownames(metadata) <- metadata[, "Sample_ID"]
+```
+
+```{r}
+dim(metadata) # 440   11
+```
+## Pathway and description
+
+```{r}
+load("JH_pathway.Rdata")
+dim(pathway_JH)
+```
+
+```{r}
+# rearrange column, row names
+colnames(pathway_JH) <- gsub("_Abundance.CPM", "", colnames(pathway_JH))
+pathway_JH$Pathway <- gsub("-", "_", pathway_JH$Pathway )
+pathway_JH <- pathway_JH[order(pathway_JH$Pathway),]
+head(pathway_JH$Pathway) # 4 first pathways have a name starting with a number
+# "12DICHLORETHDEG_PWY", "14DICHLORBENZDEG_PWY", "1CMET2_PWY", "3_HYDROXYPHENYLACETATE_DEGRADATION_PWY"
+pathway_JH$Pathway[which(pathway_JH$Pathway == "12DICHLORETHDEG_PWY")] <- "a_12DICHLORETHDEG_PWY"
+pathway_JH$Pathway[which(pathway_JH$Pathway == "14DICHLORBENZDEG_PWY")] <- "a_14DICHLORBENZDEG_PWY"
+pathway_JH$Pathway[which(pathway_JH$Pathway == "1CMET2_PWY")] <- "a_1CMET2_PWY"
+pathway_JH$Pathway[which(pathway_JH$Pathway == "3_HYDROXYPHENYLACETATE_DEGRADATION_PWY")] <- "a_3_HYDROXYPHENYLACETATE_DEGRADATION_PWY"
+pathway_JH$Pathway <- gsub("\\+", "_and_", pathway_JH$Pathway ) # "ARG+POLYAMINE_SYN" contains "+"
+pathway_JH <- pathway_JH[order(as.numeric(rownames(pathway_JH))),]
+
+
+pathway_noTax <- subset(pathway_JH, is.na(Taxonomy)) # remove species stratification 
+pathway_noTax$Taxonomy <- NULL
+
+
+# Order by decreasing abundance
+rownames(pathway_noTax) <- NULL
+rownames(pathway_noTax) <- pathway_noTax$Pathway
+pathway_noTax$Total_ab <- rowSums(pathway_noTax[, -c(1:2)], na.rm=T)
+pathway_noTax <- pathway_noTax[order(pathway_noTax$Total_ab, decreasing=T),]
+
+# separate pathway description to another file
+desc_df <- pathway_noTax[, c("Pathway", "Descr", "Total_ab")] 
+
+pathway_JH$Total_ab <- rowSums(pathway_JH[, -c(1:3)], na.rm=T)
+desc_tax_df <- pathway_JH[, c("Pathway", "Descr", "Taxonomy", "Total_ab")] 
+# table(substr(desc_tax_df$Taxonomy, 1, 3)) # taxonomy descritpion start at Genus
+#   g__   unc 
+# 22150   565 
+desc_tax_df <- separate(desc_tax_df, c("Genus", "Species"), col="Taxonomy", sep="\\.")
+desc_tax_df$Genus <- gsub('.__', '', desc_tax_df$Genus )
+desc_tax_df$Species <- gsub('.__', '', desc_tax_df$Species )
+
+rownames(pathway_noTax) <- pathway_noTax$Pathway
+pathway_noTax$Pathway <- NULL
+pathway_noTax$Descr <- NULL
+pathway_noTax$Total_ab <- NULL
+rownames(desc_df) <- desc_df$Pathway
+```
+
+
+```{r}
+# we detected some NA for column 144
+sum(is.na(pathway_noTax)) # 202
+which(is.na(pathway_noTax), arr.ind =T)
+#                                        row col
+# PRPP_PWY                                 271 144
+# DENOVOPURINE2_PWY                        287 144
+# PWY_5723                                 308 144
+# PWY_5994                                 316 144
+# PWY_7562                                 317 144
+# ...
+# TRIGLSYN_PWY                             602 144
+# PWY_6837                                 603 144
+# PWY_6842                                 604 144
+# PWY_6075                                 605 144
+# PWY_7787                                 606 144
+View(pathway_noTax[602:606, 144:145])
+# correspond to participant JH144 for which Humann was rerun independtly
+```
+
+```{r}
+# replace NA by 0
+pathway_noTax[is.na(pathway_noTax)] <- 0
+```
+
+
+
+```{r}
+dim(pathway_noTax)
+```
+
+```{r}
+pathway_noTax_rel <- pathway_noTax/1000000
+summary(colSums(pathway_noTax))
+summary(colSums(pathway_noTax_rel))
+```
+
+
+```{r}
+inters_names <- intersect(colnames(pathway_noTax_rel), rownames(metadata))
+cat("Samples present in HUMAnN and absent from Metadata: ")
+colnames(pathway_noTax_rel)[!(colnames(pathway_noTax_rel) %in% inters_names)]
+
+cat("Samples present in Metadata and absent from HUMAnN: ")
+rownames(metadata)[!(rownames(metadata) %in% inters_names)]
+```
+
+
+
+# Creating objects
+## Tree Summarized Experiment
+
+```{r}
+metadata <- metadata[order(metadata$Sample_ID), ]
+tse_pathway <- TreeSummarizedExperiment(assays =  SimpleList(relabundance=as.matrix(pathway_noTax_rel),
+                                                             CPM = as.matrix(pathway_noTax)),
+                                        colData = DataFrame(metadata),
+                                        rowData = DataFrame(desc_df))
+```
+
+```{r}
+tse_pathway
+```
+
+## Phyloseq
+
+
+```{r}
+OTU = otu_table(as.matrix(pathway_noTax_rel), taxa_are_rows = TRUE)
+TAX = tax_table(desc_df[, 1:2])
+rownames(TAX) <- TAX[,"ta1"]
+colnames(TAX) <- c("Pathway", "Descr")
+SAM = sample_data(metadata)
+```
+
+```{r}
+dim(OTU)
+```
+
+
+```{r}
+inters_names <- intersect(colnames(OTU), rownames(metadata))
+cat("Samples present in Metaphlan and absent from Metadata: ")
+colnames(OTU)[!(colnames(OTU) %in% inters_names)]
+
+cat("Samples present in Metadata and absent from Metaphlan: ")
+rownames(metadata)[!(rownames(metadata) %in% inters_names)]
+```
+
+
+```{r}
+physeq_pathway = phyloseq(OTU, TAX, SAM)
+physeq_pathway 
+```
+
+
+```{r}
+# Print sample / taxa lost when creating phyloseq object
+if(!ncol(OTU) == ncol(otu_table(physeq_pathway))){
+  inters_names <- intersect(colnames(OTU), colnames(otu_table(physeq_pathway)))
+  cat("Phyloseq sample lost: ")
+  colnames(OTU)[!(colnames(OTU) %in% inters_names)] %>% print()
+}
+if(!nrow(OTU) == nrow(otu_table(physeq_pathway))){
+  inters_names <- intersect(rownames(OTU), rownames(otu_table(physeq_pathway)))
+  cat("Phyloseq taxa lost: ")
+  rownames(OTU)[!(rownames(OTU) %in% inters_names)] %>% print()
+}
+```
+
+
+
+# Prevalence and abundance
+```{r}
+total_abundance <- rowSums(pathway_noTax) 
+max_abundance <- apply(pathway_noTax, 1, max)
+preval <- getPrevalence(tse_pathway, assay_name="CPM")
+
+df <- data.frame(Species= names(total_abundance), total_abundance=total_abundance, max_abundance=max_abundance, preval=preval)
+```
+
+```{r}
+pp <- ggplot(df, aes(max_abundance, preval)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+   theme_bw()
+pp1 <- ggMarginal(pp, type="density") 
+
+pp2 <- pp +
+  scale_x_log10(labels = scales::label_number(), name = "Maximum Abundance") +
+  scale_y_log10(
+   labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+   name = "Prevalence (%)")
+pp2 <- ggMarginal(pp2, type="density") 
+```
+
+
+```{r fig.height=7, fig.width=12}
+wrap_plots(pp1, pp2)
+```
+
+
+```{r}
+df2 <- df[-c(1:2),]
+pp <- ggplot(df2, aes(max_abundance, preval)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+   theme_bw()
+pp1 <- ggMarginal(pp, type="density") 
+
+pp2 <- pp +
+  scale_x_log10(labels = scales::label_number(), name = "Maximum Abundance") +
+  scale_y_log10(
+   labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+   name = "Prevalence (%)")
+pp2 <- ggMarginal(pp2, type="density") 
+```
+
+
+```{r fig.height=7, fig.width=12}
+wrap_plots(pp1, pp2) + plot_annotation("Without UNMAPPED and UNINTEGRATED pathways")
+```
+
+
+
+
+
+# Normalization 
+
+## Check total number of reads
+
+```{r fig.height=4, fig.width=7, message=FALSE}
+sum <-  colSums(pathway_noTax)
+mean <- colMeans(pathway_noTax)
+sam <- data.frame(sum=sum, mean=mean)
+pp <- ggplot(sam, aes(x = sum)) + 
+  geom_histogram(color = "black", fill = "blue")+  ggtitle("Distribution of sequencing depth") 
+pp
+
+
+sum <-  colSums(pathway_noTax_rel)
+mean <- colMeans(pathway_noTax_rel)
+sam <- data.frame(sum=sum, mean=mean)
+pp <- ggplot(sam, aes(x = sum)) + 
+  geom_histogram(color = "black", fill = "blue")+  ggtitle("Distribution of sequencing depth") 
+pp
+```
+
+
+
+
+# Saving objects
+
+```{r}
+save(tse_pathway, physeq_pathway, file=paste(dir, "Functional/TSE_Physeq_Pathway.Rdata", sep=""))
+```
+
+
+
+```{r}
+desc_df_toSave <- desc_df
+rownames(desc_df_toSave) <- NULL
+colnames(desc_df_toSave) <- c("Pathway", "Description", "Total CPM")
+
+colnames(desc_tax_df) <- c("Pathway", "Description", "Genus", "Species", "Total CPM")
+
+write.xlsx(desc_df_toSave, file=paste(dir1, "DataAnalysis/Pathways_description2.xlsx", sep=""), sheetName="Pathways description")
+write.xlsx(desc_tax_df, file=paste(dir1, "DataAnalysis/Pathways_description2.xlsx", sep=""), sheetName="Pathways and taxonomy", append = T)
+```
+

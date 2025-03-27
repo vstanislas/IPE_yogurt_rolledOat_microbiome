@@ -1,0 +1,1096 @@
+---
+title: "Analysis of Blood markers"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+---
+
+
+
+# Loading and formating
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(kableExtra)
+library(gtsummary)
+library(crosstable)
+library(data.table)
+library(summarytools)
+library(skimr)
+fix_windows_histograms()
+library(lme4)
+library(emmeans)
+library(gridExtra)
+library(tidyr)
+library(flextable)
+library(circlize)
+library(ComplexHeatmap)
+library(VennDiagram)
+library(RColorBrewer)
+library(DHARMa)
+library(redres)
+library(effects)
+library(car)
+
+dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
+path_analysis <- paste(dir, "DataAnalysis/Results_Complete_Analysis/", sep="")
+
+
+source(file = paste(dir, "Utils.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir0, "R functions/code_utils.R", sep=""))
+
+cols <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", 
+          Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
+cols_Inter_treat <- cols
+```
+
+
+```{r}
+load(file=paste(dir, "DataPreparation/BloodMarkers/BloodData_Zentrallabor.Rdata", sep=""))
+load(file=paste(dir, "DataPreparation/BloodMarkers/BloodData_Boston.Rdata", sep=""))
+load(file=paste(dir, "DataPreparation/Info_participant.Rdata", sep=""))
+```
+
+
+```{r paged.print=FALSE}
+head(DATA_Boston)
+```
+
+```{r paged.print=FALSE}
+head(data)
+```
+
+```{r paged.print=FALSE}
+head(PartiInfo)
+```
+
+# Data preparation
+```{r}
+data_merged <-  merge(DATA_Boston, data[,-c(1,2)], by=c("Participant_ID", "Timepoint"), all=TRUE)
+data_merged <-  merge(data_merged, PartiInfo[,c(1:3,6,11,9)], by="Participant_ID", all=TRUE)
+```
+
+```{r}
+add_meta2 <- function(metadata){
+  metadata <- as.data.frame(metadata)
+  metadata$Treatment <- case_when(metadata$Timepoint %in% c("T1", "T3") ~ "Before",
+                                  metadata$Timepoint %in% c("T2", "T4") ~ "After",
+                                  TRUE ~ NA_character_)
+  metadata$Intervention <- case_when(metadata$Timepoint %in% c("T1", "T2") & metadata$Gruppe == "A" ~ "Yogurt",
+                                     metadata$Timepoint %in% c("T3", "T4") & metadata$Gruppe == "A" ~ "YogurtOatmeal",
+                                     metadata$Timepoint %in% c("T1", "T2") & metadata$Gruppe == "B" ~ "YogurtOatmeal",
+                                     metadata$Timepoint %in% c("T3", "T4") & metadata$Gruppe == "B" ~ "Yogurt",
+                                     TRUE ~ NA_character_)
+  
+  metadata$Inter_treat <- paste(metadata$Treatment, metadata$Intervention, sep=".")
+  metadata$Inter_treat <- factor(metadata$Inter_treat, levels = c("Before.Yogurt", "After.Yogurt", "Before.YogurtOatmeal", "After.YogurtOatmeal"), ordered=T)
+  metadata$Treatment <- factor(metadata$Treatment, levels = c("Before", "After"), ordered=T)
+  metadata$Timepoint <- factor(metadata$Timepoint, levels = c("T1", "T2", "T3", "T4"), ordered=T)
+  metadata$Gruppe <- as.factor(metadata$Gruppe)
+  metadata$Participant_ID <- as.factor(metadata$Participant_ID)
+  metadata$Geschlecht <- as.factor(metadata$Geschlecht)
+  metadata$Intervention <- as.factor(metadata$Intervention)
+  
+  return(metadata)
+}
+```
+
+
+
+```{r}
+data_merged <- add_meta2(data_merged)
+```
+
+```{r paged.print=FALSE}
+head(data_merged)
+```
+
+```{r}
+#save(data_merged, file=paste(dir, "DataPreparation/BloodMarkers/BloodData_AllMarkers.Rdata", sep=""))
+```
+
+
+# Data description
+
+```{r}
+id_NA <- unique(which(is.na(data_merged[,-c(7, 13:20)]), arr.ind = T)[,"row"])
+
+kbl(data_merged[id_NA,])%>%
+  kable_paper("striped", full_width = F, position = "left") 
+```
+Details of the samples with missing values
+
+
+## Tables
+
+```{r}
+df <- as.data.frame(skim(data_merged[, c(3:6,8,10:12)]))
+kbl(df)%>%
+  kable_paper("striped", full_width = F, position = "left") 
+```
+
+```{r}
+var <- colnames(data_merged)[c(2:6,8,10:12, 17)]
+tbl_summary(data_merged[, var], by=Gruppe) %>% 
+  gtsummary::as_gt()%>% 
+  gt::tab_header(title = gt::md("Comparisons between the two groups"))
+```
+
+
+
+```{r}
+var <- colnames(data_merged)[c(3:6,8,10:17)]
+tbl_summary(subset(data_merged, Timepoint=="T1")[, var], by=Gruppe, missing ="no") %>% add_p() %>% 
+  gtsummary::as_gt()%>% 
+  gt::tab_header(title = gt::md("Demographic characteristics and concentrations in the 2 groups at first timepoint"))
+```
+
+
+
+## Plots
+
+```{r}
+measures <- colnames(data_merged)[c(3:6,8,10:12)]
+```
+
+
+### Checking distribution
+```{r fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
+ll_plot <- list()
+for(i in 1:8){
+  ll_plot[[1]] <- ggplot(data_merged, aes(x=.data[[measures[i]]])) + geom_histogram(color="white") +  theme_classic() + ggtitle("Raw data")
+  ll_plot[[2]] <- ll_plot[[1]] + scale_x_continuous(trans = "sqrt")  + ggtitle("square root transformed")
+  ll_plot[[3]] <- ll_plot[[1]] + scale_x_continuous(trans = "log2")  + ggtitle("Log2 transformed") 
+  ll_plot[[4]] <- ll_plot[[1]] + scale_x_continuous(trans=scales::pseudo_log_trans(base = 2)) + ggtitle("pseudo Log2 transformed") 
+  
+  print(wrap_plots(ll_plot, nrow=2)  + plot_layout(guides = "collect") + plot_annotation(title=measures[i]))
+}
+``` 
+
+
+```{r eval=FALSE, fig.height=8, fig.width=8, message=FALSE, warning=FALSE, include=FALSE}
+#qqplot to check normal distribution
+ll_plot <- list()
+ll_plot2 <- list()
+ll_plot3 <- list()
+for(i in 1:8){
+  ll_plot[[i]] <- ggqqplot(data_merged[,measures[i]])
+  ll_plot2[[i]] <- ggqqplot(log2(data_merged[,measures[i]]))
+  ll_plot3[[i]] <- ggqqplot(sqrt(data_merged[,measures[i]]))
+}
+
+wrap_plots(ll_plot, nrow=4)  + plot_layout(guides = "collect") + plot_annotation(title="Raw data")
+wrap_plots(ll_plot2, nrow=4)  + plot_layout(guides = "collect") + plot_annotation(title="Log transformed")
+wrap_plots(ll_plot3, nrow=4)  + plot_layout(guides = "collect") + plot_annotation(title="sqrt transformed")
+``` 
+
+
+
+```{r paged.print=FALSE}
+shap <- c()
+shap_log <- c()
+shap_psd_log <- c()
+shap_sqrt <- c()
+for(i in 1:8){
+  x <- data_merged[,measures[i]]
+  y <- replace(x, x == 0, min(x[x > 0])/2)
+  
+  shap <-  c(shap, shapiro.test(x)$p.value)
+  shap_log <-  c(shap_log, shapiro.test(log10(y))$p.value)
+  shap_psd_log <-  c(shap_psd_log, shapiro.test(pseudo_log(x, base=10))$p.value)
+  shap_sqrt <-  c(shap_sqrt, shapiro.test(sqrt(x))$p.value)
+}
+
+data.frame(measures, shap, shap_log, shap_psd_log, shap_sqrt)
+```
+
+
+```{r paged.print=FALSE}
+# transformation for plots
+trans <- c("log", "log", "", "", "", "log", "log", "psd_log")
+names(trans) <- measures
+data.frame(trans)
+```
+
+### Blood markers
+
+```{r paged.print=FALSE}
+# data_merged %>% group_by(Intervention, Treatment) %>%
+#   summarise(meanFruc=mean(FRUC, na.rm=T),
+#             meanSCRP=mean(SCRP, na.rm=T),
+#             meanSI_H=mean(SI_H, na.rm=T))
+```
+
+```{r  fig.height=12, fig.width=12, warning=FALSE}
+ll_plot <- list()
+for(i in 1:8){
+  ll_plot[[i]] <- plot_sample_measure_CO(data_merged, measures[i], "", x="Treatment", colorInter = T, print_table=F, trans = trans[i], printMean=T, line_diff = F) 
+}
+
+wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") 
+```
+
+
+```{r  fig.height=12, fig.width=12, warning=FALSE}
+ll_plot <- list()
+for(i in 1:8){
+  ll_plot[[i]] <- plot_sample_measure_CO(data_merged, measures[i], "", x="Treatment", colorInter = T, print_table=F, trans = trans[i]) 
+}
+
+wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") 
+```
+
+```{r}
+ggsave("ResultsBlood/Blood_byTreat.png", wrap_plots(ll_plot, nrow=4)  + plot_layout(guides = "collect"), width=12, height = 16)
+```
+
+
+```{r paged.print=FALSE}
+# data_merged %>% group_by(Gruppe, Timepoint) %>% 
+#   summarise(meanFruc=mean(FRUC, na.rm=T),
+#             meanSCRP=mean(SCRP, na.rm=T),
+#             meanSI_H=mean(SI_H, na.rm=T))
+```
+
+
+```{r fig.height=14, fig.width=12, warning=FALSE}
+ll_plot <- list()
+for(i in 1:8){
+  ll_plot[[i]] <- plot_sample_measure_CO(data_merged, measures[i], "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], line_diff = T) 
+}
+
+wrap_plots(ll_plot, nrow=4)  + plot_layout(guides = "collect") 
+```
+
+
+
+```{r}
+ggsave("ResultsBlood/Blood_byTime.png", wrap_plots(ll_plot, nrow=4)  + plot_layout(guides = "collect"), width=12, height = 14)
+```
+
+
+# Visuals outliers 
+
+## Identification
+
+
+```{r}
+outs <- list()
+
+id_out <- which(data_merged$TNFR2 > 3000 | data_merged$TNFR2 < 1100)
+Part_out  <- data_merged[id_out,]$Participant_ID
+outs[[1]] <- subset(data_merged, Participant_ID %in% Part_out)
+names(outs)[1] <- "TNFR2"
+
+id_out <- which(data_merged$IL6 > 5)
+Part_out  <- data_merged[id_out,]$Participant_ID
+outs[[2]] <- subset(data_merged, Participant_ID %in% Part_out)
+names(outs)[2] <- "IL6"
+
+# id_out <- which(data_merged$RAGE >2100| data_merged$RAGE <200)
+# Part_out  <- data_merged[id_out,]$Participant_ID
+# outs[[3]] <- subset(data_merged, Participant_ID %in% Part_out)
+# names(outs)[3] <- "RAGE"
+
+id_out <- which(data_merged$`8OHdG` >44| data_merged$`8OHdG` <20)
+Part_out  <- data_merged[id_out,]$Participant_ID
+outs[[3]] <- subset(data_merged, Participant_ID %in% Part_out)
+names(outs)[3] <- "8OHdG"
+
+
+id_out <- which(data_merged$zonulin <10 )
+Part_out  <- data_merged[id_out,]$Participant_ID
+outs[[4]] <- subset(data_merged, Participant_ID %in% Part_out)
+names(outs)[4] <- "zonulin"
+
+id_out <- which(data_merged$FRUC > 320)
+Part_out  <- data_merged[id_out,]$Participant_ID
+outs[[5]] <- subset(data_merged, Participant_ID %in% Part_out)
+names(outs)[5] <- "FRUC"
+
+id_out <- which(data_merged$SCRP > 10 | data_merged$SCRP<0.2)
+Part_out  <- data_merged[id_out,]$Participant_ID
+outs[[6]] <- subset(data_merged, Participant_ID %in% Part_out)
+names(outs)[6] <- "SCRP"
+```
+
+
+
+```{r fig.height=12, fig.width=15, warning=FALSE}
+for(i in seq(length(outs))){
+  sub <- outs[[i]]
+  title <- names(outs)[i]
+  ll_plot <- list()
+  for(i in 1:8){
+    ll_plot[[i]] <- plot_outliers_path(sub, data_merged, measures[i], "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], line_diff = T)
+  }
+  
+  print(wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") + 
+  plot_annotation(title, theme = theme(plot.title = element_text(size = 22, hjust = 0.5))))
+}
+```
+
+```{r paged.print=FALSE}
+outs2 <- sapply(measures, function(i) as.character(unique(outs[[i]]$Participant_ID)))
+repet <- table(unlist(outs2))
+
+df <- data.frame(matrix(ncol = length(measures), nrow = length(names(repet))))
+rownames(df) <- names(repet)
+colnames(df) <- measures
+
+for(i in seq(length(measures))){
+  df[outs2[[i]], measures[i]] <- 1
+}
+df$total <- rowSums(df, na.rm=T)
+df[order(df$total, decreasing=T),]
+```
+
+## Filtering
+
+```{r}
+data_filt <- data_merged
+
+id <- which(data_filt$Participant_ID == "ID045" & data_filt$Timepoint =="T3" | 
+              data_filt$Participant_ID == "ID067" & data_filt$Timepoint =="T2"| 
+              data_filt$Participant_ID == "ID014" & data_filt$Timepoint =="T4")
+data_filt$TNFR2[id] <- NA
+
+id <- which(data_filt$Participant_ID == "ID067" & data_filt$Timepoint =="T2" | 
+              data_filt$Participant_ID == "ID089" & data_filt$Timepoint =="T1"|
+              data_filt$Participant_ID == "ID109" & data_filt$Timepoint =="T3")
+data_filt$IL6[id] <- NA
+
+
+id <- which(data_filt$Participant_ID == "ID087" & data_filt$Timepoint =="T2")
+data_filt$zonulin[id] <- NA
+
+id <- which(data_filt$Participant_ID == "ID042" & data_filt$Timepoint =="T4" |
+              data_filt$Participant_ID == "ID118")
+data_filt$FRUC[id] <- NA
+
+
+id <- which(data_filt$Participant_ID == "ID067" & data_filt$Timepoint =="T2"|
+              data_filt$Participant_ID == "ID073" & data_filt$Timepoint =="T1"|
+              data_filt$Participant_ID == "ID084" & data_filt$Timepoint =="T4"| 
+              data_filt$Participant_ID == "ID089" & data_filt$Timepoint =="T1")
+data_filt$SCRP[id] <- NA
+```
+
+```{r fig.height=14, fig.width=12, warning=FALSE}
+ll_plot <- list()
+for(i in 1:8){
+  ll_plot[[i]] <- plot_sample_measure_CO(data_filt, measures[i], "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], line_diff = T) 
+}
+
+wrap_plots(ll_plot, nrow=4)  + plot_layout(guides = "collect") 
+```
+
+
+```{r fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
+ll_plot <- list()
+for(i in 1:8){
+  ll_plot[[1]] <- ggplot(data_filt, aes(x=.data[[measures[i]]])) + geom_histogram(color="white") +  theme_classic() + ggtitle("Raw data")
+  ll_plot[[2]] <- ll_plot[[1]] + scale_x_continuous(trans = "sqrt")  + ggtitle("square root transformed")
+  ll_plot[[3]] <- ll_plot[[1]] + scale_x_continuous(trans = "log2")  + ggtitle("Log2 transformed") 
+  ll_plot[[4]] <- ll_plot[[1]] + scale_x_continuous(trans=scales::pseudo_log_trans(base = 2)) + ggtitle("pseudo Log2 transformed") 
+  
+  print(wrap_plots(ll_plot, nrow=2)  + plot_layout(guides = "collect") + plot_annotation(title=measures[i]))
+}
+``` 
+
+```{r paged.print=FALSE}
+shap <- c()
+shap_log <- c()
+shap_psd_log <- c()
+shap_sqrt <- c()
+for(i in 1:8){
+  x <- data_filt[,measures[i]]
+  y <- replace(x, x == 0, min(x[x > 0])/2)
+  
+  shap <-  c(shap, shapiro.test(x)$p.value)
+  shap_log <-  c(shap_log, shapiro.test(log10(y))$p.value)
+  shap_psd_log <-  c(shap_psd_log, shapiro.test(pseudo_log(x, base=10))$p.value)
+  shap_sqrt <-  c(shap_sqrt, shapiro.test(sqrt(x))$p.value)
+}
+
+data.frame(measures, shap, shap_log, shap_psd_log, shap_sqrt)
+```
+
+
+```{r paged.print=FALSE}
+trans_filt <- c("", "log", "", "", "", "", "log", "psd_log")
+names(trans_filt) <- measures
+data.frame(trans_filt)
+```
+
+
+# Correlation between blood markers
+
+```{r fig.height=4, fig.width=5}
+data_merged$sexe_num <- as.numeric(data_merged$Geschlecht)
+MB_cor <- cor(data_merged[, c(3:6,8,10:12,14:16, 21)], use="complete.obs", method="spearman")
+col_fun_div = colorRamp2(c(-1, 1), hcl_palette = "Blue-Red 3") 
+Heatmap(MB_cor, col= col_fun_div, column_title = "Blood marker correlation")
+```
+
+
+```{r fig.height=4, fig.width=8, warning=FALSE}
+MB_cor_YB <- cor(subset(data_merged, Inter_treat=="Before.Yogurt")[, c(3:6,8,10:12)], use="complete.obs", method = "spearman") 
+MB_cor_YA <- cor(subset(data_merged, Inter_treat=="After.Yogurt")[, c(3:6,8,10:12)], use="complete.obs", method = "spearman") 
+ht1 <- Heatmap(MB_cor_YB, col= col_fun_div, column_title = "Before Yogurt")
+ht2 <- Heatmap(MB_cor_YA, col= col_fun_div, column_title = "After Yogurt", column_order = column_order(ht1))
+
+ht1 + ht2
+```
+
+
+```{r fig.height=4, fig.width=8, warning=FALSE}
+MB_cor_YOB <- cor(subset(data_merged, Inter_treat=="Before.YogurtOatmeal")[, c(3:6,8,10:12)], use="complete.obs", method = "spearman") 
+MB_cor_YOA <- cor(subset(data_merged, Inter_treat=="After.YogurtOatmeal")[, c(3:6,8,10:12)], use="complete.obs", method = "spearman") 
+ht3 <- Heatmap(MB_cor_YOB, col= col_fun_div, column_title = "Before YogurtOatmeal", column_order = column_order(ht1), row_order  = row_order(ht1))
+ht4 <- Heatmap(MB_cor_YOA, col= col_fun_div, column_title = "After YogurtOatmeal", column_order = column_order(ht1), row_order  = row_order(ht1))
+
+ht3 + ht4
+```
+
+```{r fig.height=10, fig.width=15, warning=FALSE}
+# pplist <- list()
+# for(i in 1:3){
+#   for(j in 1:3){
+#   z <- i + ((j-1)*3)  
+#   pplist[[z]] <- plot_pair_measures(data_merged, measures[i],  measures[j], subject_name = F, facet_grid =F, scale_log = T)
+#   }
+# }
+# wrap_plots(pplist,  ncol=3)  +  plot_layout(guides = "collect")
+```
+
+```{r fig.height=10, fig.width=15, warning=FALSE}
+# pplist <- list()
+# for(i in 1:3){
+#   for(j in 1:3){
+#   z <- i + ((j-1)*3)  
+#   pplist[[z]] <- plot_pair_measures(data_merged, measures[i],  measures[j], subject_name = F, scale_log = T)
+#   }
+# }
+# wrap_plots(pplist,  ncol=3) 
+```
+
+
+
+
+# Our mixed model 
+
+## 1st version
+
+probably run on the all data set with more NA from data preparation (all samples from ID021 T2 and zonulin from ID114 T3 were NA).
+
+```{r}
+### saved in Results_MM/
+DF <- data_merged
+DF <- dplyr::rename(DF, m_8OHdG=`8OHdG`)
+measures <- c("FRUC", "SCRP", "SI_H", "TNFR2", "IL6", "RAGE", "m_8OHdG", "zonulin")
+
+# ### saved in Results_MM_log/
+# DF$IL6_log <- log(DF$IL6)
+# DF$FRUC_log <- log(DF$FRUC)
+# DF$SCRP_log <- log(DF$SCRP)
+# DF$SI_H_log <- log(DF$SI_H)
+# (or using logTrans=T and id_totrans=c(4, 10, 11, 12))
+# measures <- c("FRUC_log", "SCRP_log", "TNFR2", "IL6_log", "RAGE", "m_8OHdG", "zonulin")
+# 
+# ### saved in Results_MM_sc/
+# DF$IL6 <- scale(DF$IL6)
+# DF$FRUC <- scale(DF$FRUC)
+# DF$SCRP <- scale(DF$SCRP)
+# DF$SI_H <- scale(DF$SI_H)
+# DF$TNFR2 <- scale(DF$TNFR2)
+# DF$RAGE <- scale(DF$RAGE)
+# DF$m_8OHdG <- scale(DF$m_8OHdG)
+# DF$zonulin <- scale(DF$zonulin)
+# measures <- c("FRUC", "SCRP", "SI_H", "TNFR2", "IL6", "RAGE", "m_8OHdG", "zonulin")
+
+
+DF_subs <-  subset_DATA(DF, measures)
+```
+
+```{r}
+### Model 1
+groupvars <- c("Gruppe", "Timepoint", "Intervention", "(1|Participant_ID)")
+res_After <- combined_results(measures, groupvars, DF=DF_subs$DF_A, compar_var = "Intervention",  savingName = "Model1_After", plot_res=T, path=paste(path_analysis, "ResultsBlood/", sep=""))
+
+### Model 2
+groupvars <- c("Gruppe", "Timepoint", "Intervention", "baseline_diff", "(1|Participant_ID)")
+res_After_full <- combined_results(measures, groupvars, DF=DF_subs$DF_A_full, compar_var = "Intervention", baseline = T,  savingName = "Model2_AfterwBase", plot_res=T, path=paste(path_analysis, "ResultsBlood/", sep=""))
+
+
+### Model 3-4
+groupvars <- c("Gruppe", "Treatment", "(1|Participant_ID)")
+res_Yogurt  <- combined_results(measures, groupvars, DF=DF_subs$DF_Y, compar_var = "Treatment",  savingName = "Model3_Yogurt", plot_res=T, path=paste(path_analysis, "ResultsBlood/", sep=""))
+res_YogurtOatmeal   <- combined_results(measures, groupvars, DF=DF_subs$DF_YO, compar_var = "Treatment",  savingName = "Model4_YogurtOatmeal", plot_res=T, path=paste(path_analysis, "ResultsBlood/", sep=""))
+```
+
+
+```{r}
+### saved in Results_MM_covariate/
+
+### Model 1
+groupvars <- c("Gruppe", "Timepoint", "Intervention", "BMI", "Geschlecht", "Alter", "(1|Participant_ID)")
+res_After <- combined_results(measures, groupvars, DF=DF_subs$DF_A, compar_var = "Intervention",  savingName = "Model1_After", plot_res=T, path=paste(path_analysis, "ResultsBlood/", sep=""))
+
+### Model 2
+groupvars <- c("Gruppe", "Timepoint", "Intervention", "baseline_diff", "BMI", "Geschlecht", "Alter", "(1|Participant_ID)")
+res_After_full <- combined_results(measures, groupvars, DF=DF_subs$DF_A_full, compar_var = "Intervention", baseline = T,  savingName = "Model2_AfterwBase", plot_res=T, path=paste(path_analysis, "ResultsBlood/", sep=""))
+
+
+### Model 3-4
+groupvars <- c("Gruppe", "Treatment", "BMI", "Geschlecht", "Alter", "(1|Participant_ID)")
+res_Yogurt  <- combined_results(measures, groupvars, DF=DF_subs$DF_Y, compar_var = "Treatment",  savingName = "Model3_Yogurt", plot_res=T, path=paste(path_analysis, "ResultsBlood/", sep=""))
+res_YogurtOatmeal   <- combined_results(measures, groupvars, DF=DF_subs$DF_YO, compar_var = "Treatment",  savingName = "Model4_YogurtOatmeal", plot_res=T, path=paste(path_analysis, "ResultsBlood/", sep=""))
+```
+
+
+
+```{r eval=FALSE, include=FALSE}
+# Check covariates
+lmer1 <- lmer(FRUC ~  Timepoint + Intervention + Alter + Geschlecht + BMI + (1|Participant_ID), data=subset(data_merged, !is.na(BMI)), REML = FALSE)
+lmer2 <- lmer(FRUC ~   Timepoint + Intervention + Alter + Geschlecht + (1|Participant_ID), data=subset(data_merged, !is.na(BMI)), REML = FALSE)
+anova(lmer2, lmer1) # BMI can be remove
+
+lmer1 <- lmer(FRUC ~  Timepoint + Intervention + Alter + Geschlecht + (1|Participant_ID), data=data_merged, REML = FALSE)
+lmer2 <- lmer(FRUC ~   Timepoint + Intervention + Alter + (1|Participant_ID), data=data_merged, REML = FALSE)
+anova(lmer2, lmer1) # Geschlecht can be remove
+
+lmer1 <- lmer(FRUC ~  Timepoint + Intervention + Alter  + (1|Participant_ID), data=data_merged, REML = FALSE)
+lmer2 <- lmer(FRUC ~   Timepoint + Intervention  + (1|Participant_ID), data=data_merged, REML = FALSE)
+anova(lmer2, lmer1) # Alter can be remove
+
+
+
+# Check covariates
+lmer1 <- lmer(TNFR2 ~  Timepoint + Intervention + Alter + Geschlecht + BMI + (1|Participant_ID), data=subset(data_merged, !is.na(BMI)), REML = FALSE)
+lmer2 <- lmer(TNFR2 ~   Timepoint + Intervention + Alter + Geschlecht + (1|Participant_ID), data=subset(data_merged, !is.na(BMI)), REML = FALSE)
+anova(lmer2, lmer1) # BMI can be remove
+
+lmer1 <- lmer(TNFR2 ~  Timepoint + Intervention + Alter + Geschlecht + (1|Participant_ID), data=data_merged, REML = FALSE)
+lmer2 <- lmer(TNFR2 ~   Timepoint + Intervention + Alter + (1|Participant_ID), data=data_merged, REML = FALSE)
+anova(lmer2, lmer1) # Geschlecht can be remove
+
+lmer1 <- lmer(TNFR2 ~  Timepoint + Intervention + Alter  + (1|Participant_ID), data=data_merged, REML = FALSE)
+lmer2 <- lmer(TNFR2 ~   Timepoint + Intervention  + (1|Participant_ID), data=data_merged, REML = FALSE)
+anova(lmer2, lmer1) # Alter SHOULD BE KEPT
+
+
+lmer1 <- lmer(m_8OHdG    ~  Timepoint + Intervention + Alter + Geschlecht + BMI + (1|Participant_ID), data=subset(DF, !is.na(BMI)), REML = FALSE)
+lmer2 <- lmer(m_8OHdG    ~   Timepoint + Intervention + Alter + Geschlecht + (1|Participant_ID), data=subset(DF, !is.na(BMI)), REML = FALSE)
+anova(lmer2, lmer1) # BMI SHOULD BE KEPT
+
+lmer1 <- lmer(m_8OHdG    ~  Timepoint + Intervention + Alter + Geschlecht + (1|Participant_ID), data=DF, REML = FALSE)
+lmer2 <- lmer(m_8OHdG    ~   Timepoint + Intervention + Alter + (1|Participant_ID), data=DF, REML = FALSE)
+anova(lmer2, lmer1) # Geschlecht can be remove
+
+lmer1 <- lmer(m_8OHdG    ~  Timepoint + Intervention + Alter  + (1|Participant_ID), data=DF, REML = FALSE)
+lmer2 <- lmer(m_8OHdG    ~   Timepoint + Intervention  + (1|Participant_ID), data=DF, REML = FALSE)
+anova(lmer2, lmer1) # Alter could be keep
+
+```
+
+
+## 2nd version
+
+
+### no transformation
+
+```{r}
+### saved in Rosner_Model_noTrans
+DF <- data_merged
+DF <- dplyr::rename(DF, m_8OHdG=`8OHdG`)
+DF_subs <-  prepare_DATA(DF, NULL)
+
+measures_noTrans <- measures
+measures_noTrans[which(measures_noTrans == "8OHdG")] <- "m_8OHdG"
+```
+
+```{r paged.print=FALSE}
+
+groupvars <- c("B", "T", "C1", "C2", "(1|Participant_ID)")
+
+res_After <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF, compar_var = "T",
+                       savingName = "Model_full", plot_res=T,
+                       path=paste(path_analysis, "ResultsBlood/Rosner_Model_noTrans/", sep=""))
+
+groupvars <- c("B", "P", "(1|Participant_ID)")
+res_Yogurt  <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF_int1, compar_var = "B",
+                         savingName = "Model_Yogurt", plot_res=T,
+                         path=paste(path_analysis, "ResultsBlood/Rosner_Model_noTrans/", sep=""))
+
+groupvars <- c("B", "P", "(1|Participant_ID)")
+res_YogurtOatmeal <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF_int2, compar_var = "B", 
+                               savingName = "Model_YogurtOatmeal", plot_res=T, 
+                               path=paste(path_analysis, "ResultsBlood/Rosner_Model_noTrans/", sep=""))
+```
+
+
+```{r paged.print=FALSE}
+inf_points_obs <- read.xlsx(file=paste(path_analysis , "ResultsBlood/Rosner_Model_noTrans/Model_full_results.xlsx", sep=""), sheetName="inf_obs_all")
+inf_points_obs$NA. <- NULL
+#inf_points_obs <- res_After[["inf_obs_all"]]
+
+inf_points_obs <- inf_points_obs[order(inf_points_obs$cooksd, decreasing=T),]
+inf_points_obs[1:10,]
+```
+
+```{r paged.print=FALSE}
+inf_points <- read.xlsx(file=paste(path_analysis , "ResultsBlood/Rosner_Model_noTrans/Model_full_results.xlsx", sep=""), sheetName="inf_part_all")
+inf_points$NA. <- NULL
+#inf_points <- res_After[["inf_part_all"]]
+
+inf_points <- inf_points[order(inf_points$cooksd, decreasing=T),]
+inf_points[1:10,]
+```
+
+
+```{r fig.height=12, fig.width=15, warning=FALSE}
+Inf_point <- merge(DF, inf_points[, c("Participant_ID", "outcome_i")], by=c("Participant_ID"))
+sub <- split(Inf_point, Inf_point$outcome_i)
+sub <- sub[measures_noTrans] #reorder to correspond to trans
+# sub[sapply(sub, is.null)] <- NULL # if no outliers detected for one or more measures
+
+ll_plot <- list()
+for(i in seq(length(sub))){
+  ll_plot[[i]] <- plot_outliers_path(sub[[i]], DF, names(sub[i]), "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], line_diff = T)
+}
+
+wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") 
+
+```
+
+
+
+### no transformation + covariate
+
+
+3 participants (ID071, ID090, ID113) are removed of the analysis as we do not have their BMI information.
+
+```{r}
+### saved in Rosner_Model_noTrans_cov
+# same DF and measures_Trans as defined in previous section
+```
+
+```{r paged.print=FALSE}
+
+groupvars <- c("B", "T", "C1", "C2", "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
+
+res_After <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF, compar_var = "T", 
+                       savingName = "Model_full", plot_res=T, 
+                       path=paste(path_analysis, "ResultsBlood/Rosner_Model_noTrans_cov/", sep=""))
+
+groupvars <- c("B", "P","Alter", "BMI", "Geschlecht",  "(1|Participant_ID)")
+res_Yogurt  <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF_int1, compar_var = "B", 
+                         savingName = "Model_Yogurt", plot_res=T, 
+                         path=paste(path_analysis, "ResultsBlood/Rosner_Model_noTrans_cov/", sep=""))
+
+
+res_YogurtOatmeal <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF_int2, compar_var = "B", 
+                               savingName = "Model_YogurtOatmeal", plot_res=T, 
+                               path=paste(path_analysis, "ResultsBlood/Rosner_Model_noTrans_cov/", sep=""))
+```
+
+
+```{r paged.print=FALSE}
+inf_points_obs <- read.xlsx(file=paste(path_analysis , "ResultsBlood/Rosner_Model_noTrans_cov/Model_full_results.xlsx", sep=""), sheetName="inf_obs_all")
+inf_points_obs$NA. <- NULL
+
+# inf_points_obs <- res_After[["inf_obs_all"]]
+inf_points_obs <- inf_points_obs[order(inf_points_obs$cooksd, decreasing=T),]
+inf_points_obs[1:10,]
+```
+
+```{r paged.print=FALSE}
+inf_points <- read.xlsx(file=paste(path_analysis , "ResultsBlood/Rosner_Model_noTrans_cov/Model_full_results.xlsx", sep=""), sheetName="inf_part_all")
+inf_points$NA. <- NULL
+
+# inf_points <- res_After[["inf_part_all"]]
+inf_points <- inf_points[order(inf_points$cooksd, decreasing=T),]
+inf_points[1:10,]
+```
+
+
+
+
+```{r fig.height=12, fig.width=15, warning=FALSE}
+Inf_point <- merge(DF, inf_points[, c("Participant_ID", "outcome_i")], by=c("Participant_ID"))
+sub <- split(Inf_point, Inf_point$outcome_i)
+sub <- sub[measures_noTrans] #reorder to correspond to trans
+# sub[sapply(sub, is.null)] <- NULL # if no outliers detected for one or more measures
+
+ll_plot <- list()
+for(i in seq(length(sub))){
+  ll_plot[[i]] <- plot_outliers_path(sub[[i]], DF, names(sub[i]), "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], line_diff = T)
+}
+
+wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") 
+
+```
+
+### transformation + covariates
+
+After checking residuals from Rosner_Model_noTrans:
+
+
+* FRUC: 
+  * remove outliers points from ID118
+  * -> not perfect fit for Alter, negative correlation with BMI: try box-cox transformation
+  * -> better general fit
+* IL6: 
+  * heteroscedasticity, use box-cox transformation
+  * -> overfitting for high values, positive correlation with Alter and BMI 
+* 8OHdG: 
+  * small heteroscedasticity, use box-cox transformation
+  * -> not perfect fit for BMI, positive correlation with BMI 
+* RAGE: 
+  * heavy-tailed, small heteroscedasticity, use box-cox transformation
+  * -> overfitting for high values of Alter, negative correlation with Alter and BMI 
+* SCRP: 
+  * use box-cox transformation
+  * -> overfitting for Alter, positive correlation with Alter and BMI  
+* SI-H: heteroscedasticity
+* TNFR2: 
+  * heteroscedasticity, use box-cox transformation
+  * -> overfitting for Alter, positive correlation with Alter and BMI 
+* zonulin: 
+  * remove outlier point ID087_T2
+  * -> heteroscedasticity: try box-cox transformation without removing point
+  * -> not perfect general fit and deviation uniformity for C1=0, positive correlation with BMI: keep box-cox, remove point again 
+  * -> better general fit
+
+
+3 participants (ID071, ID090, ID113) are removed of the analysis as we do not have their BMI information.
+
+```{r paged.print=FALSE}
+### saved in Rosner_Model_Trans_cov
+
+DF <- data_merged
+
+# remove influential points
+id <- which(DF$Participant_ID == "ID118")
+DF$FRUC[id] <- NA
+
+id <- which(DF$Participant_ID == "ID087" & DF$Timepoint =="T2")
+DF$zonulin[id] <- NA
+
+id <- which(DF$Participant_ID == "ID067" & DF$Timepoint =="T2")
+DF$SCRP[id] <- NA
+
+id <- which(DF$Participant_ID == "ID109" & DF$Timepoint =="T3")
+DF$IL6[id] <- NA
+
+# transformation
+trans_analysis <- c("bc", "bc", "bc", "bc", "bc", "bc", "bc", "psd_log")
+names(trans_analysis) <- measures
+data.frame(trans_analysis)
+```
+
+```{r}
+DF <- dplyr::rename(DF, m_8OHdG=`8OHdG`)
+names(trans_analysis)[which(names(trans_analysis) == "8OHdG")] <- "m_8OHdG"
+DF_subs <-  prepare_DATA(DF, trans_analysis)
+measures_Trans <- sapply(names(trans_analysis), function(x) if(trans_analysis[[x]] !="") paste(x, trans_analysis[[x]], sep="_") else x)
+```
+
+
+```{r paged.print=FALSE}
+
+groupvars <- c("B", "T", "C1", "C2", "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
+
+res_After <- run_model(measures_Trans, groupvars, DF=DF_subs$DF, compar_var = "T", 
+                       savingName = "Model_full", plot_res=T, 
+                       path=paste(path_analysis, "ResultsBlood/Rosner_Model_Trans_cov/", sep=""))
+
+groupvars <- c("B", "P", "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
+res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int1, compar_var = "B",
+                         savingName = "Model_Yogurt", plot_res=T,
+                         path=paste(path_analysis, "ResultsBlood/Rosner_Model_Trans_cov/", sep=""))
+
+
+res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int2, compar_var = "B",
+                               savingName = "Model_YogurtOatmeal", plot_res=T,
+                               path=paste(path_analysis, "ResultsBlood/Rosner_Model_Trans_cov/", sep=""))
+```
+
+
+
+
+```{r}
+### newest model saved in lmer_Trans_cov/
+### same results than Rosner_Model_Trans_cov/ but better plots and results presentation
+
+#### Model full
+compar_var = "T"
+DF_work=DF_subs$DF
+compa = "full"
+FE <- c("B", "T", "C1", "C2", "Alter", "BMI", "Geschlecht")
+RE <- "Participant_ID"
+
+#### Model Y
+compar_var = "B"
+DF_work=DF_subs$DF_int1
+compa = "Y"
+FE <- c("B", "P", "Alter", "BMI", "Geschlecht")
+RE <- "Participant_ID"
+
+#### Model YO
+compar_var = "B"
+DF_work=DF_subs$DF_int2
+compa = "YO"
+FE <- c("B", "P", "Alter", "BMI", "Geschlecht")
+RE <- "Participant_ID"
+```
+
+```{r}
+sig_threshold <- 0.05
+wd0 <- paste(path_analysis, "ResultsBlood/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("lmer", compa, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
+               path=paste("lmer_Trans_cov/", compa, "/", sep=""),
+               verbose=F)
+```
+
+
+
+### transformation no covariates
+
+```{r}
+### saved in Rosner_Model_Trans
+# same DF and measures_Trans as defined in previous section
+```
+
+```{r paged.print=FALSE}
+
+groupvars <- c("B", "T", "C1", "C2", "(1|Participant_ID)")
+
+res_After <- run_model(measures_Trans, groupvars, DF=DF_subs$DF, compar_var = "T", 
+                       savingName = "Model_full", plot_res=T, 
+                       path=paste(path_analysis, "ResultsBlood/Rosner_Model_Trans/", sep=""))
+
+groupvars <- c("B", "P", "(1|Participant_ID)")
+res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int1, compar_var = "B",
+                         savingName = "Model_Yogurt", plot_res=T,
+                         path=paste(path_analysis, "ResultsBlood/Rosner_Model_Trans/", sep=""))
+
+
+res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int2, compar_var = "B",
+                               savingName = "Model_YogurtOatmeal", plot_res=T,
+                               path=paste(path_analysis, "ResultsBlood/Rosner_Model_Trans/", sep=""))
+```
+
+
+
+```{r}
+### newest model saved in lmer_Trans/
+### same results than Rosner_Model_Trans/ but better plots and results presentation
+
+#### Model full
+compar_var = "T"
+DF_work=DF_subs$DF
+compa = "full"
+FE <- c("B", "T", "C1", "C2")
+RE <- "Participant_ID"
+
+#### Model Y
+compar_var = "B"
+DF_work=DF_subs$DF_int1
+compa = "Y"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+#### Model YO
+compar_var = "B"
+DF_work=DF_subs$DF_int2
+compa = "YO"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+```
+
+```{r}
+sig_threshold <- 0.05
+wd0 <- paste(path_analysis, "ResultsBlood/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("lmer", compa, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
+               path=paste("lmer_Trans/", compa, "/", sep=""),
+               verbose=F)
+```
+
+
+
+
+### Multiple Outliers filtered
+```{r}
+# WE DID NOT KEEP THIS ANALYSIS
+
+# ### saved in Rosner_Model_filt
+# DF_filt <- data_filt
+# DF_filt <- dplyr::rename(DF_filt, m_8OHdG=`8OHdG`)
+# names(trans_filt)[which(names(trans_filt) == "8OHdG")] <- "m_8OHdG"
+# DF_filt_subs <-  prepare_DATA(DF_filt, trans_filt)
+# measures2 <- sapply(names(trans_filt), function(x) if(trans_filt[[x]] !="") paste(x, trans_filt[[x]], sep="_") else x)
+```
+
+
+
+```{r}
+# groupvars <- c("B", "T", "C1", "C2", "(1|Participant_ID)")
+# 
+# res_After <- run_model(measures2, groupvars, DF=DF_filt_subs$DF, compar_var = "T", 
+#                        savingName = "Model_full", plot_res=T, 
+#                        path=paste(path_analysis, "ResultsBlood/Rosner_Model_filt/", sep=""))
+# 
+# groupvars <- c("B", "P", "(1|Participant_ID)")
+# res_Yogurt  <- run_model(measures2, groupvars, DF=DF_filt_subs$DF_int1, compar_var = "B", 
+#                          savingName = "Model_Yogurt", plot_res=T, 
+#                          path=paste(path_analysis, "ResultsBlood/Rosner_Model_filt/", sep=""))
+# 
+# 
+# res_YogurtOatmeal <- run_model(measures2, groupvars, DF=DF_filt_subs$DF_int2, compar_var = "B", 
+#                                savingName = "Model_YogurtOatmeal", plot_res=T,
+#                                path=paste(path_analysis, "ResultsBlood/Rosner_Model_filt/", sep=""))
+```
+
+
+
+
+
+
+
+
+# Differences in response
+
+```{r fig.height=25, fig.width=9, warning=FALSE}
+pp <-list()
+for(i in 1:8){
+  ylim <- range(data_merged[, measures[i]], na.rm = T)
+  
+  ind_filter <- quote(Timepoint=="T2"& Diff=="Increase")
+  p1 <- plot_sample_measure_CO(data_merged, measures[i], "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], ind_filter=ind_filter, ylim=ylim) 
+  
+  ind_filter <- quote(Timepoint=="T2"& Diff=="Decrease")
+  p2 <- plot_sample_measure_CO(data_merged,  measures[i], "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], ind_filter=ind_filter, ylim=ylim)
+  
+  pp[[i]] <- wrap_plots(p1, p2, ncol=2)
+  
+}
+
+wrap_plots(pp, ncol=1)
+```
+
+
+```{r}
+DF <- data_merged
+DF_F <- computeDiff(DF, "Timepoint", "FRUC")
+ind_filter_FRUC <-  subset(DF_F, Timepoint=="T2"& Diff=="Increase")$Participant_ID
+# length(ind_filter_FRUC) # 51
+
+DF_SC <- computeDiff(DF, "Timepoint", "SCRP")
+ind_filter_SCRP <-  subset(DF_SC, Timepoint=="T2"& Diff=="Increase")$Participant_ID
+# length(ind_filter_SCRP) # 43
+
+DF_SI <- computeDiff(DF, "Timepoint", "SI_H")
+ind_filter_SI_H <-  subset(DF_SI, Timepoint=="T2"& Diff=="Increase")$Participant_ID
+# length(ind_filter_SI_H) # 52
+
+
+length(intersect(ind_filter_FRUC, ind_filter_SCRP)) # 17
+length(intersect(ind_filter_FRUC, ind_filter_SI_H)) # 28
+length(intersect(ind_filter_SCRP, ind_filter_SI_H)) # 20
+```
+
+```{r paged.print=FALSE}
+# ind_filter_FRUC_df <- data.frame(Participant_ID = as.character(ind_filter_FRUC), measure="FRUC")
+# ind_filter_SCRP_df <- data.frame(Participant_ID = as.character(ind_filter_SCRP), measure="SCRP")
+# ind_filter_SI_H_df <- data.frame(Participant_ID = as.character(ind_filter_SI_H), measure="SI_H")
+# df_list <- list(ind_filter_FRUC_df,  ind_filter_SCRP_df, ind_filter_SI_H_df)
+# PartHsd <- df_list %>% purrr::reduce(dplyr::full_join, by='Participant_ID')
+# # PartHsd <- PartHsd[order(PartHsd$Participant_ID),]
+# # PartHsd
+# flextable(PartHsd)
+```
+
+```{r}
+myCol <- brewer.pal(3, "Pastel2")
+
+plt <- venn.diagram(x = list(ind_filter_FRUC, ind_filter_SCRP, ind_filter_SI_H),
+                    disable.logging=T,
+                    category.names = c("FRUC" , "SCRP" , "SI_H"),
+                    lty = 'blank', fill = myCol, # circle
+                    fontface = "bold", fontfamily = "sans", # Numbers
+                    cat.fontface = "bold", cat.fontfamily = "sans", # Set names 
+                    filename=NULL)
+```
+
+```{r fig.height=3.5, fig.width=4}
+grid.newpage()
+grid::grid.draw(plt)
+```
+
+
+
+
+
+
+
+
+```{r}
+myCol <- brewer.pal(8, "Pastel2")
+names(myCol) <- measures
+DF <- data_merged
+
+ind_filter <- list()
+for(i in 1:8){
+  DF_F <- computeDiff(DF, "Timepoint", measures[i])
+  ind_filter[[i]] <- as.character(subset(DF_F, Timepoint=="T2"& Diff=="Increase")$Participant_ID)
+}
+names(ind_filter) <- measures
+
+plt <- venn.diagram(x = ind_filter[1:5],
+                    disable.logging=T,
+                    category.names = measures[1:5],
+                    lty = 'blank', fill = myCol[1:5], # circle
+                    fontface = "bold", fontfamily = "sans", # Numbers
+                    cat.fontface = "bold", cat.fontfamily = "sans", # Set names 
+                    margin =0.3,filename=NULL)
+
+plt2 <- venn.diagram(x = ind_filter[c(6,7,3,4,8)], 
+                     disable.logging=T,
+                    category.names = measures[c(6,7,3,4,8)],
+                    lty = 'blank', fill = myCol[c(6,7,3,4,8)], # circle
+                    fontface = "bold", fontfamily = "sans", # Numbers
+                    cat.fontface = "bold", cat.fontfamily = "sans", # Set names
+                    margin =0.3, filename=NULL)
+
+```
+
+```{r fig.height=3.5, fig.width=4}
+grid.newpage()
+grid::grid.draw(plt)
+```
+```{r fig.height=3.5, fig.width=4}
+grid.newpage()
+grid::grid.draw(plt2)
+```
+```{r}
+length(Reduce(intersect,ind_filter)) # 0 # number of individuals find increasing during wahsout for all blood markers
+```
+

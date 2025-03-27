@@ -1,0 +1,1004 @@
+---
+title: "Clustering participants"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+---
+
+
+# Loading
+
+```{r message=FALSE}
+library(phyloseq)
+library(ggplot2)
+library(plyr)
+library(ape)
+library(knitr)
+library(vegan)
+library(tidyr)
+library(gridExtra)
+# library(lemon)
+library(RColorBrewer)
+library(dplyr)
+library(cowplot)
+library(scater)
+library(ggnewscale)
+library(mia)
+library(miaViz)
+library(kableExtra)
+library(patchwork)
+library(microViz)
+library(lme4)
+library(emmeans)
+library(flextable)
+library(ggpubr)
+library(reshape)
+library(circlize)
+library(ComplexHeatmap)
+```
+
+```{r include=FALSE}
+dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
+path_analysis0 <- paste(dir, "DataAnalysis/Results_Complete_Analysis/ResultsTaxonomy/", sep="")
+path_analysis <- paste(dir, "DataAnalysis/Clustering/", sep="")
+
+source(file = paste(dir, "Utils.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+```
+
+```{r}
+# ### Load counts data with already ordination and alpha diversity (from Analysis_with_counts_value 2.3.1)
+# ### contains tse, tse_sub
+# load(paste(path_analysis0, "On_Counts_AllSamples/tse_counts_allwithordination.Rdata", sep=""))
+# tse_counts <- tse
+# tse_sub_counts <- tse_sub
+# rm(tse, tse_sub)
+```
+
+```{r}
+# ### Load data at T1 with already ordination (from 2.2.2.1)
+# ### contains tse_sub_counts_T1
+# load(paste(path_analysis, "tse_sub_counts_T1_withordination.rdata", sep=""))
+```
+
+```{r}
+### Load data with already ordination and alpha diversity (from Complete_analysis 2.3.1)
+### contains tse, tse_sub, tse_SGB
+load(paste(path_analysis0, "On_Relabundance_AllSamples/tse_allwithordination.Rdata", sep=""))
+```
+
+```{r}
+### Load data at T1 and T3 with already ordination (from 2.2.1.1)
+### contains tse_sub_T1, tse_sub_T3
+load(paste(path_analysis, "tse_sub_T1_withordination.rdata", sep=""))
+load(paste(path_analysis, "tse_sub_T3_withordination.rdata", sep=""))
+load(paste(path_analysis, "partToRemove.rdata", sep=""))
+```
+
+```{r}
+# proband_colors <- brewer.pal(n = length(unique(sample_data(mydata.psq)$Proband)), name = "Set1")
+# names(proband_colors) <- unique(sample_data(mydata.psq)$Proband)
+
+cols <- c("#017b74", "#73ffec", "#ad0053", "#ffcacf", "#ff8d3f", "#ffdf91", "#00c14e","#abffc2", "#6042ed", "#90b9ff", "#700054","#ff8bfc", "#3d8b00", "#bcff7c", "#8b3700", "#ffba91", "#ff4e2a", "#000e26", "#71a800", "#577eff", "#02d0d3", "#d00039", "#dba500", "#ac72ff", "#e0c9ff", "#002e66", "#006dbd", "#02a0c8", "#db37ec",  "#e5ffd5", "#004a20", "#637500", "#ec00bf", "#434d00","#ff77a8", "#002f17", "#f1ff4b", "#533500", "#7ea2ff", "#000d4e", "#ff41a0", "#003636", "#271800", "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#A65628", "#F781BF", "#FFFF00FF", "#999999")
+
+colors20 <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9', "grey2")
+
+cols_Inter_treat <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
+
+cols_Participant_Id <- rep(cols, 3)
+names(cols_Participant_Id) <- unique(colData(tse)[, "Participant_ID"])
+```
+
+# Plots 
+
+
+## Ordination plots with genus abudance visualization
+
+### At T1 only (relative abundance)
+```{r}
+tse_sub_T1 <- tse_sub[ , tse_sub$Timepoint == "T1"]
+
+tse_sub_T1 <- runMDS(tse_sub_T1, FUN = vegan::vegdist, method = "bray", name = "PCoA_BC", exprs_values = "relabundance")
+set.seed(122)
+tse_sub_T1 <- runUMAP(tse_sub_T1, name = "UMAP", exprs_values="relabundance")
+```
+
+#### Save object
+```{r}
+save(tse_sub_T1, file=paste(path_analysis, "tse_sub_T1_withordination.rdata", sep=""))
+```
+
+
+#### PCoA Bray-Curtis
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse_sub_T1, "PCoA_BC", rank_dominance="Family")
+e <- attr(reducedDim(tse_sub_T1, "PCoA_BC"), "eig");
+rel_eig <- e/sum(e[e>0])          
+x_lab = paste("PCoA 1 (", round(100 * rel_eig[[1]],1), "%", ")", sep = "")
+y_lab = paste("PCoA 2 (", round(100 * rel_eig[[2]],1), "%", ")", sep = "")
+
+p1 <- pp$p_gruppe + labs(x=x_lab, y=y_lab)
+p2 <- pp$p_topdom + labs(x=x_lab, y=y_lab)
+p3 <- plot_ordination(tse_sub_T1, "PCoA_BC", rank_dominance="Genus")$p_topdom
+p4 <- pp$p_inter_treat + labs(x=x_lab, y=y_lab)
+p5 <- pp$p_part + labs(x=x_lab, y=y_lab)
+```
+
+
+```{r fig.height=9, fig.width=14, message=FALSE, paged.print=FALSE}
+p3
+```
+
+```{r fig.height=24, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium","Clostridia_unclassified", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Clostridium", "Coprococcus", "Faecalibacterium", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse_sub_T1, "PCoA_BC", genus=genus)$p_1spec 
+}
+# wrap_plots(p_list, ncol=3) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "Plots/Ordination_plots/T1_sp_PCoA_BC.png", sep=""), 
+       p1 + p5 +  p2 + p4 + plot_layout(guides = 'collect') + p3 + plot_layout(guides = 'collect'), 
+       width=27, height=15)
+
+
+ggsave(paste(path_analysis, "Plots/Ordination_plots/T1_sp_PCoA_BC_withGenus.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+
+
+#### UMAP
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse_sub_T1, "UMAP", rank_dominance="Family")
+
+p1 <- pp$p_gruppe 
+p2 <- pp$p_topdom 
+p3 <- plot_ordination(tse_sub_T1, "UMAP", rank_dominance="Genus")$p_topdom
+p4 <- pp$p_inter_treat 
+p5 <- pp$p_part 
+```
+
+
+```{r fig.height=9, fig.width=14, message=FALSE, paged.print=FALSE}
+p3
+```
+
+```{r fig.height=24, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium","Clostridia_unclassified", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Clostridium", "Coprococcus", "Faecalibacterium", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse_sub_T1, "UMAP", genus=genus)$p_1spec 
+}
+# wrap_plots(p_list, ncol=3) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "Plots/Ordination_plots/T1_sp_UMAP.png", sep=""), 
+       p1 + p5 +  p2 + p4 + plot_layout(guides = 'collect') + p3 + plot_layout(guides = 'collect'), 
+       width=21, height=11)
+
+
+ggsave(paste(path_analysis, "Plots/Ordination_plots/T1_sp_UMAP_withGenus.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=20, height=13)
+```
+
+
+### At T3 only (relative abundance)
+```{r}
+tse_sub_T3 <- tse_sub[ , tse_sub$Timepoint == "T3"]
+
+tse_sub_T3 <- runMDS(tse_sub_T3, FUN = vegan::vegdist, method = "bray", name = "PCoA_BC", exprs_values = "relabundance")
+set.seed(12)
+tse_sub_T3 <- runUMAP(tse_sub_T3, name = "UMAP", exprs_values="relabundance")
+```
+
+#### Save object
+```{r}
+save(tse_sub_T3, file=paste(path_analysis, "tse_sub_T3_withordination.rdata", sep=""))
+```
+
+
+#### PCoA Bray-Curtis
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse_sub_T3, "PCoA_BC", rank_dominance="Family")
+e <- attr(reducedDim(tse_sub_T3, "PCoA_BC"), "eig");
+rel_eig <- e/sum(e[e>0])          
+x_lab = paste("PCoA 1 (", round(100 * rel_eig[[1]],1), "%", ")", sep = "")
+y_lab = paste("PCoA 2 (", round(100 * rel_eig[[2]],1), "%", ")", sep = "")
+
+p1 <- pp$p_gruppe + labs(x=x_lab, y=y_lab)
+p2 <- pp$p_topdom + labs(x=x_lab, y=y_lab)
+p3 <- plot_ordination(tse_sub_T3, "PCoA_BC", rank_dominance="Genus")$p_topdom
+p4 <- pp$p_inter_treat + labs(x=x_lab, y=y_lab)
+p5 <- pp$p_part + labs(x=x_lab, y=y_lab)
+```
+
+
+```{r fig.height=9, fig.width=14, message=FALSE, paged.print=FALSE}
+p3
+```
+
+```{r fig.height=24, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium","Clostridia_unclassified", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Clostridium", "Coprococcus", "Faecalibacterium", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse_sub_T3, "PCoA_BC", genus=genus)$p_1spec 
+}
+# wrap_plots(p_list, ncol=3) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "Plots/Ordination_plots/T3_sp_PCoA_BC.png", sep=""), 
+       p1 + p5 +  p2 + p4 + plot_layout(guides = 'collect') + p3 + plot_layout(guides = 'collect'), 
+       width=27, height=15)
+
+
+ggsave(paste(path_analysis, "Plots/Ordination_plots/T3_sp_PCoA_BC_withGenus.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+
+#### UMAP
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse_sub_T3, "UMAP", rank_dominance="Family")
+
+p1 <- pp$p_gruppe 
+p2 <- pp$p_topdom 
+p3 <- plot_ordination(tse_sub_T3, "UMAP", rank_dominance="Genus")$p_topdom
+p4 <- pp$p_inter_treat 
+p5 <- pp$p_part 
+
+# (p1 + p5 +  p2) / (p4 + p6 + p3) + plot_layout(guides = 'collect')
+```
+
+
+```{r fig.height=9, fig.width=14, message=FALSE, paged.print=FALSE}
+p3
+```
+
+```{r fig.height=24, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium","Clostridia_unclassified", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Clostridium", "Coprococcus", "Faecalibacterium", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse_sub_T3, "UMAP", genus=genus)$p_1spec 
+}
+# wrap_plots(p_list, ncol=3) 
+```
+
+```{r}
+ggsave(paste(path_analysis, "Plots/Ordination_plots/T3_sp_UMAP.png", sep=""), 
+       p1 + p5 +  p2 + p4 + plot_layout(guides = 'collect') + p3 + plot_layout(guides = 'collect'), 
+       width=21, height=11)
+
+
+ggsave(paste(path_analysis, "Plots/Ordination_plots/T3_sp_UMAP_withGenus.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=20, height=13)
+```
+
+
+
+
+# Clustering approaches
+
+## Kmeans 
+```{r}
+library(factoextra)
+```
+
+```{r}
+load(paste(path_analysis0, "On_Relabundance_AllSamples/tse_allwithordination.Rdata", sep=""))
+```
+
+```{r}
+algo <- "Kmeans"
+assays <- "relabundance"
+distance <- "WeigthedUnifrac"
+```
+
+
+```{r}
+assay_toclus_T1 <- assay(tse_sub_T1, assays)
+assay_toclus_T1 <- t(assay_toclus_T1)
+
+assay_toclus_T3 <- assay(tse_sub_T3, assays)
+assay_toclus_T3 <- t(assay_toclus_T3)
+```
+
+### at T1
+
+```{r}
+if(distance=="JSD") diss_T1 <- calculateJSD(tse_sub_T1, assay_name =assays)
+if(distance=="Unifrac") diss_T1 <- calculateUnifrac(tse_sub_T1, assay_name =assays, weighted = F) 
+if(distance=="WeigthedUnifrac") diss_T1 <- calculateUnifrac(tse_sub_T1, assay_name =assays, weighted = T) 
+if(distance %in% c("bray", "euclidean", "jaccard")) diss_T1 <- vegdist(assay_toclus_T1, method = distance) 
+diss_T1 <- as.matrix(diss_T1) 
+if(distance == "") diss_T1 <- assay_toclus_T1 # no distance
+
+
+# Perform silhouette analysis and plot the result
+sil_T1 <- fviz_nbclust(diss_T1, kmeans, method = "silhouette")
+sil_T1
+```
+```{r}
+k=2
+```
+
+```{r}
+set.seed(15463)
+km_T1 <- kmeans(diss_T1, k, nstart = 25)
+colData(tse_sub_T1)$clus_km_T1 <- as.factor(km_T1$cluster)
+```
+
+```{r fig.height=3, fig.width=9, message=FALSE, warning=FALSE}
+p1 <- plotReducedDim(tse_sub_T1, "PCoA_BC", colour_by = "clus_km_T1")
+p4 <- plotReducedDim(tse_sub_T1, "UMAP", colour_by = "clus_km_T1")
+
+wrap_plots(p1, p4, ncol=2) + plot_layout(guides = 'collect')
+```
+
+
+### at T3
+
+```{r}
+if(distance=="JSD") diss_T3 <- calculateJSD(tse_sub_T3, assay_name =assays)
+if(distance=="Unifrac") diss_T3 <- calculateUnifrac(tse_sub_T3, assay_name =assays, weighted = F) 
+if(distance=="WeigthedUnifrac") diss_T3 <- calculateUnifrac(tse_sub_T3, assay_name =assays, weighted = T) 
+if(distance %in% c("bray", "euclidean", "jaccard")) diss_T3 <- vegdist(assay_toclus_T3, method = distance) 
+diss_T3 <- as.matrix(diss_T3) 
+if(distance == "") diss_T3 <- assay_toclus_T3 # no distance
+
+# Perform silhouette analysis and plot the result
+sil_T3 <- fviz_nbclust(diss_T3, kmeans, method = "silhouette")
+sil_T3
+```
+```{r}
+k3=2
+```
+
+
+```{r}
+set.seed(15463)
+km_T3 <- kmeans(diss_T3, k3, nstart = 25)
+colData(tse_sub_T3)$clus_km_T3 <- as.factor(km_T3$cluster)
+```
+
+```{r fig.height=3, fig.width=9, message=FALSE, warning=FALSE}
+p1 <- plotReducedDim(tse_sub_T3, "PCoA_BC", colour_by = "clus_km_T3")
+p4 <- plotReducedDim(tse_sub_T3, "UMAP", colour_by = "clus_km_T3")
+
+wrap_plots(p1, p4, ncol=2) + plot_layout(guides = 'collect')
+```
+
+### Compare clustering at T1 and T3
+```{r}
+clus_T1 <- data.frame(km_T1$cluster)
+clus_T1$Sample_ID <- rownames(clus_T1)
+clus_T1 <- merge(colData(tse_sub), clus_T1, by="Sample_ID", sort=F)[, c("Participant_ID", "km_T1.cluster")]
+
+clus_T3 <- data.frame(km_T3$cluster)
+clus_T3$Sample_ID <- rownames(clus_T3)
+clus_T3 <- merge(colData(tse_sub), clus_T3, by="Sample_ID", sort=F)[, c("Participant_ID", "km_T3.cluster")]
+```
+
+```{r}
+clus <- merge(clus_T1, clus_T3, by="Participant_ID", all=T, sort=F)
+clus_overlap <- table(clus$km_T1.cluster, clus$km_T3.cluster, useNA="always")
+clus_overlap
+```
+
+
+```{r fig.height=5, fig.width=10}
+col_fun = colorRamp2(c(0, 50, 100), c("white", "yellow", "red"))
+clus_overlap_pct <- prop.table(clus_overlap, margin=1)*100
+clus_overlap_pct2 <- prop.table(t(clus_overlap), margin=1)*100
+hm1 <- Heatmap(clus_overlap_pct, name="%" , cluster_rows = FALSE, cluster_columns = FALSE,  col = col_fun, column_title = "clus_kmeans_T3", row_title = "clus_kmeans_T1")
+hm2 <- Heatmap(clus_overlap_pct2, name="%" , cluster_rows = FALSE, cluster_columns = FALSE,  col = col_fun, column_title = "clus_kmeans_T1", row_title = "clus_kmeans_T3")
+
+grob1 <- grid.grabExpr(draw(hm1, column_title="% participants in clus i T1 set in clus j T3"))
+grob2 <- grid.grabExpr(draw(hm2, column_title="% participants in clus j T3 set in clus i T1"))
+ wrap_elements(grob1) + wrap_elements(grob2)
+```
+
+
+```{r paged.print=FALSE}
+clus$km.cluster_merged <- rep("miss", nrow(clus))
+clus$km.cluster_merged[clus$km_T1.cluster==1 & clus$km_T3.cluster==1] <- 1
+clus$km.cluster_merged[clus$km_T1.cluster==2 & clus$km_T3.cluster==2] <- 2
+# clus$km.cluster_merged[clus$km_T1.cluster==3 & clus$km_T3.cluster==2] <- 3
+# clus$km.cluster_merged[clus$km_T1.cluster==4 & clus$km_T3.cluster==1] <- 4
+
+part_miss_table <- subset(clus, km.cluster_merged=="miss")
+part_miss_table$Participant_ID <- as.character(part_miss_table$Participant_ID)
+pct_miss_text <- paste(round(sum(clus$km.cluster_merged=="miss")/nrow(clus) *100, 2),"% of the participants (miss) are in different cluster between T1 and T3", sep="")
+
+table(clus$km.cluster_merged)
+pct_miss_text
+```
+```{r}
+subset(part_miss_table, Participant_ID %in% partToRemove)
+```
+
+```{r fig.height=7, fig.width=5}
+id_bold <- rep("plain", nrow(part_miss_table))
+id_bold[part_miss_table$Participant_ID %in% partToRemove] <- "bold"
+
+part_miss_plot <- grid.arrange(bottom=grid::textGrob(pct_miss_text, gp=grid::gpar(fontsize=9)), tableGrob(part_miss_table, theme=ttheme_minimal(base_size=8, padding = unit(c(4, 2), "mm"), core=list(fg_params=list(fontface=id_bold)))))
+```
+
+
+```{r}
+clus_merged <- merge(colData(tse), clus, by="Participant_ID", sort=F)[, c("Sample_ID", "km_T1.cluster", "km_T3.cluster", "km.cluster_merged")]
+identical(clus_merged$Sample_ID, colData(tse_sub)[, "Sample_ID"])
+```
+
+```{r}
+colData(tse)$clus_km_T1 <- as.factor(clus_merged$km_T1.cluster)
+colData(tse)$clus_km_T3 <- as.factor(clus_merged$km_T3.cluster)
+colData(tse)$clus_km_merged <- as.factor(clus_merged$km.cluster_merged)
+```
+
+
+
+```{r fig.height=6, fig.width=13, message=FALSE, warning=FALSE}
+cols_T1 <- colors20 [c(1,2,21)]
+cols_T3 <- colors20 
+p1 <- plotReducedDim(tse, "UMAP", colour_by = "clus_km_T1", shape_by ="Timepoint")+
+  ggtitle("clus_km_T1")+ scale_colour_manual(values = cols_T1) +  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p2 <- plotReducedDim(tse, "UMAP", colour_by = "clus_km_T3", shape_by ="Timepoint") + 
+  ggtitle("clus_km_T3")+  scale_colour_manual(values = cols_T3)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p3 <- plotReducedDim(tse, "UMAP", colour_by = "clus_km_merged", shape_by ="Timepoint") + 
+  ggtitle("clus_km_merged")+ scale_colour_manual(values = cols_T1)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p4 <- plotReducedDim(tse, "PCoA_BC", colour_by = "clus_km_T1", shape_by ="Timepoint") + 
+  ggtitle("clus_km_T1")+  scale_colour_manual(values = cols_T1)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p5 <- plotReducedDim(tse, "PCoA_BC", colour_by = "clus_km_T3", shape_by ="Timepoint") + 
+  ggtitle("clus_km_T3")+ scale_colour_manual(values = cols_T3)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p6 <- plotReducedDim(tse, "PCoA_BC", colour_by = "clus_km_merged", shape_by ="Timepoint") + 
+  ggtitle("clus_km_merged")+ scale_colour_manual(values = cols_T1)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+
+wrap_plots(p1, p2, p3, p4, p5, p6, ncol=3) 
+```
+
+```{r}
+clust_meta=as.data.frame(colData(tse))
+clust_meta= clust_meta[, c("Participant_ID",   "Sample_ID" ,  "Timepoint", "clus_km_T1", "clus_km_T3", "clus_km_merged")]
+```
+
+
+```{r}
+if(k==k3){
+  k_info <- paste("k", k, sep="_")
+} else k_info <- paste("kT1", k, "kT3", k3, sep="_")
+
+part1 <- wrap_elements(grob1) + part_miss_plot + plot_layout(ncol =1, heights=c(1,2))
+part2 <- p1 + p2 + p3 + p4 + p5 + p6 + sil_T1 + sil_T3 + plot_spacer()+ plot_layout(ncol =3)
+
+ggsave(paste(path_analysis, "ResultsAlgo/", paste(algo, assays, distance, k_info, sep="_"), ".png", sep=""),
+       wrap_elements(part1) + part2 + plot_layout(ncol =2, widths=c(1,3)),
+       width=21, height = 12)
+
+save(clust_meta, file= paste(path_analysis, "ResultsAlgo/", paste(algo, assays, distance, k_info, sep="_"), ".Rdata", sep=""))
+```
+
+
+
+
+
+## Community detection
+
+```{r}
+library(bluster)
+```
+
+```{r}
+load(paste(path_analysis0, "On_Relabundance_AllSamples/tse_allwithordination.Rdata", sep=""))
+```
+
+Aitchison distance is simply the Euclidean distance between clr-transformed compositions
+
+```{r}
+algo <- "NNGraph"
+assays <- "relabundance"
+distance <- ""
+```
+
+
+```{r}
+assay_toclus_T1 <- assay(tse_sub_T1, assays)
+assay_toclus_T1 <- t(assay_toclus_T1)
+
+assay_toclus_T3 <- assay(tse_sub_T3, assays)
+assay_toclus_T3 <- t(assay_toclus_T3)
+```
+
+
+### at T1
+```{r message=FALSE, warning=FALSE}
+k <- c(2,3,4,5,6,7,8,9,10,12,15,17,20, 22, 25)
+seed <- 122
+sil_res <- data.frame()
+for(i in seq(length(k))){
+  x <- k[i]
+  # Creating the graph and running the short random walks algorithm  
+  set.seed(seed)
+  graph_clusters <- clusterRows(assay_toclus_T1, NNGraphParam(k=x, cluster.fun="louvain"))
+    
+  # Computing the diagnostic info
+  sil <- approxSilhouette(assay_toclus_T1, graph_clusters)
+  sil_res_i <- data.frame(k=x, sil=round(mean(sil$width), 3))
+  sil_res <- rbind(sil_res, sil_res_i)
+  
+  # Plotting as a boxlpot to observe cluster separation
+  boxplot(split(sil$width, graph_clusters), main=paste0("k = ", x, ", mean silhouette = ", round(mean(sil$width), 3)), ylim=c(-0.2,0.6))
+  
+  # Results of the clustering as a color for each sample
+  p1 <- plotUMAP(tse_sub_T1, colour_by = I(graph_clusters)) + labs(title = paste0("k = ", x))
+  p2 <- plotReducedDim(tse_sub_T1, "PCoA_BC", colour_by = I(graph_clusters)) + labs(title = paste0("k = ", x))
+  
+  wrap_plots(p1, p2) + plot_layout(guides = 'collect')
+}
+
+```
+
+```{r}
+max_sil <- sil_res[sil_res$sil==max(sil_res$sil), "k"]
+
+sil_T1 <- ggplot(sil_res, aes(x=factor(k), y=sil, group=1)) + 
+  geom_line(color="steelblue") + geom_point(color="steelblue")+ 
+  ylab("Average silhouette width") + xlab("k = Number of nearest neighbors") + 
+  ggtitle("Optimal number of neighbors T1") + 
+  geom_vline(xintercept = as.character(max_sil), linetype="dashed", color="steelblue") +
+  theme_minimal() 
+sil_T1
+```
+
+
+
+```{r}
+k1 = 8
+```
+
+
+```{r fig.height=3, fig.width=9, message=FALSE, warning=FALSE}
+set.seed(seed)
+NNres_T1 <- clusterRows(assay_toclus_T1, NNGraphParam(k=k1, cluster.fun="louvain"))
+colData(tse_sub_T1)$clus_NNres <- as.factor(NNres_T1)
+
+p1 <- plotReducedDim(tse_sub_T1, "PCoA_BC", colour_by = "clus_NNres")
+p4 <- plotReducedDim(tse_sub_T1, "UMAP", colour_by = "clus_NNres")
+
+wrap_plots(p1, p4, ncol=2) + plot_layout(guides = 'collect')
+```
+
+
+
+### at T3
+```{r message=FALSE, warning=FALSE}
+k <- c(2,3,4,5,6,7,8,9,10,12,15,17,20,22,25)
+seed <- 122
+sil_res <- data.frame()
+for(i in seq(length(k))){
+  x <- k[i]
+  # Creating the graph and running the short random walks algorithm  
+  set.seed(seed)
+  graph_clusters <- clusterRows(assay_toclus_T3, NNGraphParam(k=x, cluster.fun="louvain"))
+    
+  # Computing the diagnostic info
+  sil <- approxSilhouette(assay_toclus_T3, graph_clusters)
+  sil_res_i <- data.frame(k=x, sil=round(mean(sil$width), 3))
+  sil_res <- rbind(sil_res, sil_res_i)
+  
+  # Plotting as a boxlpot to observe cluster separation
+  boxplot(split(sil$width, graph_clusters), main=paste0("k = ", x, ", mean silhouette = ", round(mean(sil$width), 3)), ylim=c(-0.2,0.6))
+  
+  # Results of the clustering as a color for each sample
+  p1 <- plotUMAP(tse_sub_T3, colour_by = I(graph_clusters)) + labs(title = paste0("k = ", x))
+  p2 <- plotReducedDim(tse_sub_T3, "PCoA_BC", colour_by = I(graph_clusters)) + labs(title = paste0("k = ", x))
+  
+  wrap_plots(p1, p2) + plot_layout(guides = 'collect')
+}
+```
+
+
+
+```{r}
+max_sil <- sil_res[sil_res$sil==max(sil_res$sil), "k"]
+
+sil_T3 <- ggplot(sil_res, aes(x=factor(k), y=sil, group=1)) + 
+  geom_line(color="steelblue") + geom_point(color="steelblue")+ 
+  ylab("Average silhouette width") + xlab("k = Number of nearest neighbors") + 
+  ggtitle("Optimal number of neigbors T3") + 
+  geom_vline(xintercept = as.character(max_sil), linetype="dashed", color="steelblue") +
+  theme_minimal() 
+sil_T3
+```
+
+
+
+
+```{r}
+k3 = 6
+```
+
+
+```{r fig.height=3, fig.width=9, message=FALSE, warning=FALSE}
+set.seed(seed)
+NNres_T3 <- clusterRows(assay_toclus_T3, NNGraphParam(k=k3, cluster.fun="louvain"))
+colData(tse_sub_T3)$clus_NNres <- as.factor(NNres_T3)
+
+p1 <- plotReducedDim(tse_sub_T3, "PCoA_BC", colour_by = "clus_NNres")
+p4 <- plotReducedDim(tse_sub_T3, "UMAP", colour_by = "clus_NNres")
+
+wrap_plots(p1, p4, ncol=2) + plot_layout(guides = 'collect')
+```
+
+### Compare clustering at T1 and T3
+
+```{r}
+clus_T1 <- data.frame(NNres_T1)
+clus_T1$Sample_ID <- rownames(assay_toclus_T1)
+clus_T1 <- merge(colData(tse_sub), clus_T1, by="Sample_ID", sort=F)[, c("Participant_ID", "NNres_T1")]
+
+clus_T3 <- data.frame(NNres_T3)
+clus_T3$Sample_ID <- rownames(assay_toclus_T3)
+clus_T3 <- merge(colData(tse_sub), clus_T3, by="Sample_ID", sort=F)[, c("Participant_ID", "NNres_T3")]
+```
+
+
+
+```{r}
+clus <- merge(clus_T1, clus_T3, by="Participant_ID", all=T, sort=F)
+clus_overlap <- table(clus$NNres_T1, clus$NNres_T3, useNA="always")
+clus_overlap
+```
+```{r fig.height=5, fig.width=10}
+col_fun = colorRamp2(c(0, 50, 100), c("white", "yellow", "red"))
+clus_overlap_pct <- prop.table(clus_overlap, margin=1)*100
+clus_overlap_pct2 <- prop.table(t(clus_overlap), margin=1)*100
+
+hm1 <- Heatmap(clus_overlap_pct, name="%" , cluster_rows = FALSE, cluster_columns = FALSE,  col = col_fun, column_title = "NNres_T3", row_title = "NNres_T1")
+
+hm2 <- Heatmap(clus_overlap_pct2, name="%" , cluster_rows = FALSE, cluster_columns = FALSE,  col = col_fun, column_title = "NNres_T1", row_title = "NNres_T3")
+
+grob1 <- grid.grabExpr(draw(hm1, column_title="% participants in clus i T1 set in clus j T3"))
+grob2 <- grid.grabExpr(draw(hm2, column_title="% participants in clus j T3 set in clus i T1"))
+ wrap_elements(grob1) + wrap_elements(grob2)
+```
+
+
+```{r paged.print=FALSE}
+clus$NNres_merged <- rep("miss", nrow(clus))
+clus$NNres_merged[clus$NNres_T1==1 & clus$NNres_T3==1] <- 1
+clus$NNres_merged[clus$NNres_T1==2 & clus$NNres_T3==4] <- 2
+clus$NNres_merged[clus$NNres_T1==3 & clus$NNres_T3==2] <- 3
+clus$NNres_merged[clus$NNres_T1==4 & clus$NNres_T3==3] <- 4
+
+part_miss_table <- subset(clus, NNres_merged=="miss")
+part_miss_table$Participant_ID <- as.character(part_miss_table$Participant_ID)
+pct_miss_text <- paste(round(sum(clus$NNres_merged=="miss")/nrow(clus) *100, 2),"% of the participants (miss) are in different cluster between T1 and T3", sep="")
+
+table(clus$NNres_merged)
+pct_miss_text
+```
+```{r}
+subset(part_miss_table, Participant_ID %in% partToRemove)
+```
+
+```{r}
+id_bold <- rep("plain", nrow(part_miss_table))
+id_bold[part_miss_table$Participant_ID %in% partToRemove] <- "bold"
+
+part_miss_plot <- grid.arrange(bottom=grid::textGrob(pct_miss_text, gp=grid::gpar(fontsize=9)), tableGrob(part_miss_table, theme=ttheme_minimal(base_size=8, padding = unit(c(4, 2), "mm"), core=list(fg_params=list(fontface=id_bold)))))
+```
+
+
+
+```{r}
+clus_merged <- merge(colData(tse_sub), clus, by="Participant_ID", sort=F)[, c("Sample_ID", "NNres_T1", "NNres_T3", "NNres_merged")]
+identical(clus_merged$Sample_ID, colData(tse_sub)[, "Sample_ID"])
+```
+
+```{r}
+colData(tse)$clus_NNres_T1 <- as.factor(clus_merged$NNres_T1)
+colData(tse)$clus_NNres_T3 <- as.factor(clus_merged$NNres_T3)
+colData(tse)$clus_NNres_merged <- as.factor(clus_merged$NNres_merged)
+```
+
+
+```{r fig.height=6, fig.width=13, message=FALSE, warning=FALSE}
+cols_T1 <- colors20[c(1,4,2,3,21)]
+cols_T3 <- colors20
+p1 <- plotReducedDim(tse, "UMAP", colour_by = "clus_NNres_T1", shape_by ="Timepoint")+
+  ggtitle("clus_NNres_T1")+ scale_colour_manual(values = cols_T1) +  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p2 <- plotReducedDim(tse, "UMAP", colour_by = "clus_NNres_T3", shape_by ="Timepoint")+
+  ggtitle("clus_NNres_T3")+ scale_colour_manual(values = cols_T3) +  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p3 <- plotReducedDim(tse, "UMAP", colour_by = "clus_NNres_merged", shape_by ="Timepoint")+
+  ggtitle("clus_NNres_merged")+ scale_colour_manual(values = cols_T1) +  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p4 <- plotReducedDim(tse, "PCoA_BC", colour_by = "clus_NNres_T1", shape_by ="Timepoint")+
+  ggtitle("clus_NNres_T1")+ scale_colour_manual(values = cols_T1) +  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p5 <- plotReducedDim(tse, "PCoA_BC", colour_by = "clus_NNres_T3", shape_by ="Timepoint")+
+  ggtitle("clus_NNres_T3")+ scale_colour_manual(values = cols_T3) +  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p6 <- plotReducedDim(tse, "PCoA_BC", colour_by = "clus_NNres_merged", shape_by ="Timepoint")+
+  ggtitle("clus_NNres_merged")+ scale_colour_manual(values = cols_T1) +  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+
+wrap_plots(p1, p2, p3, p4, p5, p6, ncol=3) 
+```
+
+
+
+```{r}
+clust_meta=as.data.frame(colData(tse))
+clust_meta= clust_meta[, c("Participant_ID",   "Sample_ID" ,  "Timepoint", "clus_NNres_T1", "clus_NNres_T3", "clus_NNres_merged")]
+```
+
+
+```{r}
+if(k1==k3){
+  k_info <- paste("k", k1, sep="_")
+} else k_info <- paste("kT1", k1, "kT3", k3, sep="_")
+
+part1 <- wrap_elements(grob1) + part_miss_plot + plot_layout(ncol =1, heights=c(1,2))
+part2 <- p1 + p2 + p3 + p4 + p5 + p6 + sil_T1 + sil_T3 + plot_spacer()+ plot_layout(ncol =3)
+
+ggsave(paste(path_analysis, "ResultsAlgo/", paste(algo, assays, distance, k_info, sep="_"), ".png", sep=""),
+       wrap_elements(part1) + part2 + plot_layout(ncol =2, widths=c(1,3)),
+       width=21, height = 12)
+
+save(clust_meta, file= paste(path_analysis, "ResultsAlgo/", paste(algo, assays, distance, k_info, sep="_"), ".Rdata", sep=""))
+```
+
+
+
+
+```{r}
+colData(tse)$abundance <- getAbundanceFeature(tse_sub, feature_id = "Species:Streptococcus_thermophilus", abund_values = "relabundance")
+plot_sample_measure_CO(tse, "abundance", "Species:Streptococcus_thermophilus", x="Timepoint", colorInter = T, print_table=F, trans = "psd_log")  + facet_grid(Gruppe ~ clus_NNres_T1) 
+
+
+
+colData(tse)$abundance <- getAbundanceFeature(tse_sub, feature_id = "Species:Lactobacillus_delbrueckii", abund_values = "relabundance")
+plot_sample_measure_CO(tse, "abundance", "Species:Lactobacillus_delbrueckii", x="Timepoint", colorInter = T, print_table=F, trans = "psd_log")  + facet_grid(Gruppe ~ clus_NNres_T1) 
+```
+
+
+## PAM clustering
+
+```{r}
+library(cluster)
+library(factoextra)
+```
+
+```{r}
+load(paste(path_analysis0, "On_Relabundance_AllSamples/tse_allwithordination.Rdata", sep=""))
+```
+
+
+Aitchison distance is simply the Euclidean distance between clr-transformed compositions
+
+```{r}
+algo <- "PAM"
+assays <- "relabundance"
+distance <- "WeigthedUnifrac"
+```
+
+
+```{r}
+assay_toclus_T1 <- assay(tse_sub_T1, assays)
+assay_toclus_T1 <- t(assay_toclus_T1)
+
+assay_toclus_T3 <- assay(tse_sub_T3, assays)
+assay_toclus_T3 <- t(assay_toclus_T3)
+```
+
+
+### T1 
+
+
+```{r}
+if(distance=="JSD") diss_T1 <- calculateJSD(tse_sub_T1, assay_name =assays)
+if(distance=="Unifrac") diss_T1 <- calculateUnifrac(tse_sub_T1, assay_name =assays, weighted = F) 
+if(distance=="WeigthedUnifrac") diss_T1 <- calculateUnifrac(tse_sub_T1, assay_name =assays, weighted = T) 
+if(distance %in% c("bray", "euclidean", "jaccard")) diss_T1 <- vegdist(assay_toclus_T1, method = distance) 
+diss_T1 <- as.matrix(diss_T1) 
+if(distance == "") diss_T1 <- assay_toclus_T1 # no distance
+
+sil_T1 <- fviz_nbclust(diss_T1, pam, method ="silhouette")+theme_minimal() + ggtitle("Optimal number of clusters T1")
+sil_T1
+```
+```{r}
+k=4
+```
+
+```{r fig.height=3, fig.width=9, message=FALSE, warning=FALSE}
+Pam_T1 <- pam(diss_T1, k = k, keep.diss=T)
+colData(tse_sub_T1)$clus_PAM_T1 <- as.factor(Pam_T1$cluster)
+
+
+p1 <- plotReducedDim(tse_sub_T1, "PCoA_BC", colour_by = "clus_PAM_T1")
+p4 <- plotReducedDim(tse_sub_T1, "UMAP", colour_by = "clus_PAM_T1")
+
+wrap_plots(p1, p4, ncol=2) + plot_layout(guides = 'collect')
+```
+
+
+### T3 
+
+```{r}
+if(distance=="JSD") diss_T3 <- calculateJSD(tse_sub_T3, assay_name =assays)
+if(distance=="Unifrac") diss_T3 <- calculateUnifrac(tse_sub_T3, assay_name =assays, weighted = F) 
+if(distance=="WeigthedUnifrac") diss_T3 <- calculateUnifrac(tse_sub_T3, assay_name =assays, weighted = T) 
+if(distance %in% c("bray", "euclidean", "jaccard")) diss_T3 <- vegdist(assay_toclus_T3, method = distance) 
+diss_T3 <- as.matrix(diss_T3) 
+if(distance == "") diss_T3 <- assay_toclus_T3 # no distance
+
+sil_T3 <- fviz_nbclust(diss_T3, pam, method ="silhouette")+ theme_minimal() + ggtitle("Optimal number of clusters T3")
+sil_T3
+```
+
+```{r}
+k3=2
+```
+
+```{r fig.height=3, fig.width=9, message=FALSE, warning=FALSE}
+Pam_T3 <-pam(diss_T3, k = k3)
+colData(tse_sub_T3)$clus_PAM_T3 <- as.factor(Pam_T3$cluster)
+
+
+p1 <- plotReducedDim(tse_sub_T3, "PCoA_BC", colour_by = "clus_PAM_T3")
+p4 <- plotReducedDim(tse_sub_T3, "UMAP", colour_by = "clus_PAM_T3")
+
+wrap_plots(p1, p4, ncol=2) + plot_layout(guides = 'collect')
+```
+
+
+
+### Compare clustering at T1 and T3
+```{r}
+clus_T1 <- data.frame(clus_PAM_T1 = Pam_T1$cluster)
+clus_T1$Sample_ID <- rownames(clus_T1)
+clus_T1 <- merge(colData(tse), clus_T1, by="Sample_ID", sort=F)[, c("Participant_ID", "clus_PAM_T1")]
+
+clus_T3 <- data.frame(clus_PAM_T3 = Pam_T3$cluster)
+clus_T3$Sample_ID <- rownames(clus_T3)
+clus_T3 <- merge(colData(tse), clus_T3, by="Sample_ID", sort=F)[, c("Participant_ID", "clus_PAM_T3")]
+```
+
+
+```{r}
+clus <- merge(clus_T1, clus_T3, by="Participant_ID", all=T, sort=F)
+clus_overlap <- table(clus$clus_PAM_T1, clus$clus_PAM_T3, useNA="always")
+clus_overlap
+```
+
+
+```{r fig.height=5, fig.width=10}
+col_fun = colorRamp2(c(0, 50, 100), c("white", "yellow", "red"))
+clus_overlap_pct <- prop.table(clus_overlap, margin=1)*100
+clus_overlap_pct2 <- prop.table(t(clus_overlap), margin=1)*100
+hm1 <- Heatmap(clus_overlap_pct, name="%" , cluster_rows = FALSE, cluster_columns = FALSE,  col = col_fun, column_title = "clus_PAM_T3", row_title = "clus_PAM_T1")
+hm2 <- Heatmap(clus_overlap_pct2, name="%" , cluster_rows = FALSE, cluster_columns = FALSE,  col = col_fun, column_title = "clus_PAM_T1", row_title = "clus_PAM_T3")
+
+grob1 <- grid.grabExpr(draw(hm1, column_title="% participants in clus i T1 set in clus j T3"))
+grob2 <- grid.grabExpr(draw(hm2, column_title="% participants in clus j T3 set in clus i T1"))
+ wrap_elements(grob1) + wrap_elements(grob2)
+```
+
+
+```{r paged.print=FALSE}
+clus$clus_PAM_merged <- rep("miss", nrow(clus))
+clus$clus_PAM_merged[clus$clus_PAM_T1==1 & clus$clus_PAM_T3==1] <- 1
+clus$clus_PAM_merged[clus$clus_PAM_T1==2 & clus$clus_PAM_T3==1] <- 2
+clus$clus_PAM_merged[clus$clus_PAM_T1==3 & clus$clus_PAM_T3==1] <- 3
+clus$clus_PAM_merged[clus$clus_PAM_T1==4 & clus$clus_PAM_T3==2] <- 4
+
+part_miss_table <- subset(clus, clus_PAM_merged=="miss")
+part_miss_table$Participant_ID <- as.character(part_miss_table$Participant_ID)
+pct_miss_text <- paste(round(sum(clus$clus_PAM_merged=="miss")/nrow(clus) *100, 2),"% of the participants (miss) are in different cluster between T1 and T3", sep="")
+
+table(clus$clus_PAM_merged)
+pct_miss_text
+```
+```{r}
+subset(part_miss_table, Participant_ID %in% partToRemove)
+```
+
+```{r}
+id_bold <- rep("plain", nrow(part_miss_table))
+id_bold[part_miss_table$Participant_ID %in% partToRemove] <- "bold"
+
+part_miss_plot <- grid.arrange(bottom=grid::textGrob(pct_miss_text, gp=grid::gpar(fontsize=9)), tableGrob(part_miss_table, theme=ttheme_minimal(base_size=8, padding = unit(c(4, 2), "mm"), core=list(fg_params=list(fontface=id_bold)))))
+```
+
+
+```{r}
+clus_merged <- merge(colData(tse), clus, by="Participant_ID", sort=F)[, c("Sample_ID", "clus_PAM_T1", "clus_PAM_T3", "clus_PAM_merged")]
+clus_merged <- clus_merged[order(clus_merged$Sample_ID),]
+identical(clus_merged$Sample_ID, colData(tse)[, "Sample_ID"])
+```
+
+
+```{r}
+colData(tse)$clus_PAM_T1 <- as.factor(clus_merged$clus_PAM_T1)
+colData(tse)$clus_PAM_T3 <- as.factor(clus_merged$clus_PAM_T3)
+colData(tse)$clus_PAM_merged <- as.factor(clus_merged$clus_PAM_merged)
+```
+
+
+
+```{r fig.height=6, fig.width=13, message=FALSE, warning=FALSE}
+cols_T1 <- colors20[c(1, 3, 4, 2, 21)]
+cols_T3 <- colors20 
+p1 <- plotReducedDim(tse, "UMAP", colour_by = "clus_PAM_T1", shape_by ="Timepoint")+ 
+  ggtitle("clus_PAM_T1")+ scale_colour_manual(values = cols_T1) +  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p2 <- plotReducedDim(tse, "UMAP", colour_by = "clus_PAM_T3", shape_by ="Timepoint") + 
+  ggtitle("clus_PAM_T3")+ scale_colour_manual(values = cols_T3)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p3 <- plotReducedDim(tse, "UMAP", colour_by = "clus_PAM_merged", shape_by ="Timepoint") + 
+  ggtitle("clus_PAM_merged")+ scale_colour_manual(values = cols_T1)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p4 <- plotReducedDim(tse, "PCoA_BC", colour_by = "clus_PAM_T1", shape_by ="Timepoint") + 
+  ggtitle("clus_PAM_T1")+  scale_colour_manual(values = cols_T1)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p5 <- plotReducedDim(tse, "PCoA_BC", colour_by = "clus_PAM_T3", shape_by ="Timepoint") + 
+  ggtitle("clus_PAM_T3")+ scale_colour_manual(values = cols_T3)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+p6 <- plotReducedDim(tse, "PCoA_BC", colour_by = "clus_PAM_merged", shape_by ="Timepoint") + 
+  ggtitle("clus_PAM_merged")+ scale_colour_manual(values = cols_T1)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+wrap_plots(p1, p2, p3, p4, p5, p6, ncol=3) 
+```
+
+
+```{r}
+clust_meta=as.data.frame(colData(tse))
+clust_meta= clust_meta[, c("Participant_ID",   "Sample_ID" ,  "Timepoint", "clus_PAM_T1", "clus_PAM_T3", "clus_PAM_merged")]
+```
+
+
+```{r}
+if(k==k3){
+  k_info <- paste("k", k, sep="_")
+} else k_info <- paste("kT1", k, "kT3", k3, sep="_")
+
+part1 <- wrap_elements(grob1) + part_miss_plot + plot_layout(ncol =1, heights=c(1,2))
+part2 <- p1 + p2 + p3 + p4 + p5 + p6 + sil_T1 + sil_T3 + plot_spacer()+ plot_layout(ncol =3)
+
+ggsave(paste(path_analysis, "ResultsAlgo/", paste(algo, assays, distance, k_info, sep="_"), ".png", sep=""),
+       wrap_elements(part1) + part2 + plot_layout(ncol =2, widths=c(1,3)),
+       width=21, height = 12)
+
+save(clust_meta, file= paste(path_analysis, "ResultsAlgo/", paste(algo, assays, distance, k_info, sep="_"), ".Rdata", sep=""))
+```
+

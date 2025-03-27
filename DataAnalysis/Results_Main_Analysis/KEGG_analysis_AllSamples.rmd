@@ -1,0 +1,819 @@
+---
+title: "Analysis of functional KEGG"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+---
+
+
+<style>
+.main-container { width: 1200px; max-width:2800px;}
+</style>
+
+
+
+
+
+# Loading
+
+```{r message=FALSE}
+library(phyloseq)
+library(ggplot2)
+library(plyr)
+library(ape)
+library(knitr)
+library(vegan)
+library(tidyr)
+library(gridExtra)
+# library(lemon)
+library(RColorBrewer)
+library(dplyr)
+library(cowplot)
+library(scater)
+library(ggnewscale)
+library(mia)
+library(miaViz)
+library(kableExtra)
+library(patchwork)
+library(microViz)
+library(lme4)
+library(emmeans)
+library(flextable)
+library(ggpubr)
+library(reshape)
+library(tictoc)
+```
+
+
+```{r message=FALSE}
+dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
+path_analysis <- paste(dir, "DataAnalysis/Results_Complete_Analysis/ResultsFunctional/On_KEGG/", sep="")
+
+source(file = paste(dir, "Utils.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir0, "R functions/code_utils.R", sep=""))
+```
+
+
+```{r}
+### Load data with already ordination (saved at the end of ordination section)
+### contains tse, tse_KEGKEGGnly
+load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
+```
+
+
+```{r message=FALSE}
+load(paste(dir, "DataPreparation/Microbiome_DATA_Kun_Huang/Functional/TSE_Physeq_KEGG.Rdata", sep=""))
+
+tse0 <- tse_KEGG  
+physeq0 <- physeq_KEGG 
+
+# Remove 2 samples from ID016 not correctly prepared by the participant
+tse <- tse0[, c(!(tse0$Sample_ID  %in% c("JH379", "JH380")))]
+physeq <- ps_filter(physeq0, !(Sample_ID %in% c("JH379", "JH380"))) 
+
+tse_KEGGOnly <- tse[!(rowData(tse)$KEGG  %in% c("UNMAPPED", "UNGROUPED")),] #  965 438
+physeq_KEGGOnly <- subset_taxa(physeq, !(KEGG  %in% c("UNMAPPED", "UNGROUPED"))) # 965  438 
+
+rm(tse_KEGG, tse0, physeq_KEGG, physeq0)
+```
+
+
+```{r message=FALSE}
+# removed ordered factor to allow some plotting functions to work properly
+physeq_KEGGOnly_noFact <-  physeq_KEGGOnly
+sample_data(physeq_KEGGOnly_noFact)$Inter_treat <- as.character(sample_data(physeq_KEGGOnly_noFact)$Inter_treat )
+sample_data(physeq_KEGGOnly_noFact)$Inter_treat <- as.factor(sample_data(physeq_KEGGOnly_noFact)$Inter_treat )
+```
+
+
+```{r}
+# proband_colors <- brewer.pal(n = length(unique(sample_data(mydata.psq)$Proband)), name = "Set1")
+# names(proband_colors) <- unique(sample_data(mydata.psq)$Proband)
+
+cols <- c("#017b74", "#73ffec", "#ad0053", "#ffcacf", "#ff8d3f", "#ffdf91", "#00c14e","#abffc2", "#6042ed", "#90b9ff", "#700054","#ff8bfc", "#3d8b00", "#bcff7c", "#8b3700", "#ffba91", "#ff4e2a", "#000e26", "#71a800", "#577eff", "#02d0d3", "#d00039", "#dba500", "#ac72ff", "#e0c9ff", "#002e66", "#006dbd", "#02a0c8", "#db37ec",  "#e5ffd5", "#004a20", "#637500", "#ec00bf", "#434d00","#ff77a8", "#002f17", "#f1ff4b", "#533500", "#7ea2ff", "#000d4e", "#ff41a0", "#003636", "#271800", "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#A65628", "#F781BF", "#FFFF00FF", "#999999")
+
+cols_Inter_treat <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
+
+cols_Participant_Id <- rep(cols, 3)
+names(cols_Participant_Id) <- unique(colData(tse)[, "Participant_ID"])
+```
+
+
+# Exploration
+
+## Prevalence x Abundance
+
+**prevalence**: frequency of samples where the taxa was detected
+
+**abundance**: number of reads assigned to a taxa (on average or in total)
+
+
+
+
+```{r}
+rowData(tse)$prevalence <- getPrevalence(tse, detection = 0, sort = FALSE, assay.type = "CPM", as_relative = TRUE)
+rowData(tse)$abundance_sum <- rowSums(assays(tse)[["CPM"]])
+rowData(tse)$abundance_mean <- rowMeans(assays(tse)[["CPM"]])
+rowData(tse)$abundance_max <- apply(assays(tse)[["CPM"]], 1, max)
+
+rowData(tse_KEGGOnly)$prevalence <- getPrevalence(tse_KEGGOnly, detection = 0, sort = FALSE, assay.type = "CPM", as_relative = TRUE)
+rowData(tse_KEGGOnly)$abundance_sum <- rowSums(assays(tse_KEGGOnly)[["CPM"]])
+rowData(tse_KEGGOnly)$abundance_mean <- rowMeans(assays(tse_KEGGOnly)[["CPM"]])
+rowData(tse_KEGGOnly)$abundance_max <- apply(assays(tse_KEGGOnly)[["CPM"]], 1, max)
+```
+
+
+```{r fig.height=7, fig.width=10}
+p1 <- ggplot(as.data.frame(rowData(tse)), aes(x=abundance_sum)) + geom_histogram(bins=30, color="white") + scale_x_log10()
+p2 <- ggplot(as.data.frame(rowData(tse)), aes(x=abundance_max)) + geom_histogram(bins=30, color="white") + scale_x_log10()
+p3 <- ggplot(as.data.frame(rowData(tse)), aes(x=prevalence)) + geom_histogram(bins=30, color="white")
+wrap_plots(p1, p2, p3, ncol=2)
+```
+
+
+
+
+
+```{r fig.height=7, fig.width=9}
+## Prevalence x abundance on the complete species data
+ggplot(as.data.frame(rowData(tse)), aes(abundance_sum, prevalence)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+  scale_x_continuous(labels = scales::label_number(), name = "Total Abundance") +
+  scale_y_continuous(
+    labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+    name = "Prevalence (%)",
+    sec.axis = sec_axis(
+      trans = ~ . * ncol(tse), breaks = scales::breaks_pretty(n = 9),
+      name = "Prevalence (N samples)"
+    )) +
+  ggrepel::geom_text_repel(
+    data = function(df) filter(df, abundance_sum > 300 | prevalence > 0.6),
+  mapping = aes(label = KEGG), size = 2.5, min.segment.length = 0)+
+   theme_bw()
+
+ggplot(as.data.frame(rowData(tse_KEGGOnly)), aes(abundance_sum, prevalence)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+  scale_x_continuous(labels = scales::label_number(), name = "Total Abundance") +
+  scale_y_continuous(
+    labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+    name = "Prevalence (%)",
+    sec.axis = sec_axis(
+      trans = ~ . * ncol(tse), breaks = scales::breaks_pretty(n = 9),
+      name = "Prevalence (N samples)"
+    )) +
+  ggrepel::geom_text_repel(
+    data = function(df) filter(df, abundance_sum > 300 | prevalence > 0.6),
+  mapping = aes(label = KEGG), size = 2.5, min.segment.length = 0)+
+   theme_bw()
+```
+
+
+
+```{r fig.height=10, fig.width=12}
+## Prevalence x abundance on the complete species data - axis log transformed
+ggplot(as.data.frame(rowData(tse)), aes(abundance_max, prevalence)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+  scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), labels = scales::label_number(), name = "Total Abundance") +
+  scale_y_continuous(trans=scales::pseudo_log_trans(base = 10),
+    labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+    name = "Prevalence (%)",
+    sec.axis = sec_axis(
+      trans = ~ . * ncol(tse), breaks = scales::breaks_pretty(n = 9),
+      name = "Prevalence (N samples)"
+    )) +
+  ggrepel::geom_text_repel(
+  mapping = aes(label = KEGG), size = 2.5, min.segment.length = 0)+
+   theme_bw()
+
+ggplot(as.data.frame(rowData(tse_KEGGOnly)), aes(abundance_max, prevalence)) +
+  geom_point(alpha = 0.5) +
+  geom_rug(alpha = 0.1) +
+  scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), labels = scales::label_number(), name = "Total Abundance") +
+  scale_y_continuous(trans=scales::pseudo_log_trans(base = 10),
+    labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
+    name = "Prevalence (%)",
+    sec.axis = sec_axis(
+      trans = ~ . * ncol(tse), breaks = scales::breaks_pretty(n = 9),
+      name = "Prevalence (N samples)"
+    )) +
+  ggrepel::geom_text_repel(
+  mapping = aes(label = KEGG), size = 2.5, min.segment.length = 0)+
+   theme_bw()
+```
+
+```{r paged.print=FALSE}
+abundance_CPM <- rowSums(assays(tse)[["CPM"]])
+abundance_CPM <- abundance_CPM[order(abundance_CPM, decreasing = T)]
+head(abundance_CPM, 15)
+```
+
+```{r}
+plot(abundance_CPM[c(2:500)])
+```
+
+```{r paged.print=FALSE}
+abundance_CPM2 <- rowSums(assays(tse_KEGGOnly)[["CPM"]])
+abundance_CPM2 <- abundance_CPM2[order(abundance_CPM2, decreasing = T)]
+head(abundance_CPM2, 15)
+```
+
+```{r}
+plot(abundance_CPM2[c(2:500)])
+```
+
+# Ordination
+
+
+
+- **Distance/dissimilarity measures** 
+  - **`r colorize("Bray-curtis", "#02a0c8")`**: take into account the abundance $BC_{ij}= 1 - \frac{2C_{ij}}{S_i + S_j}$ with $S_i$ : Total number of species in sample $i$, $S_j$ : Total number of species in sample $j$ and $C_{ij}$ : Sum of lesser value for those species common in both samples
+  - **`r colorize("Unifrac", "#02a0c8")`**:  take into account the phylogenetic tree information
+      - unweigthed unifrac: Measures the fraction of unique branch length / measures the relative length of those branches that lead exclusively to species present in only one of the two samples with respect to the total length of all branches in the tree.
+    - weigthed unifrac: includes information on the relative abundance of each taxa
+  - **`r colorize("Jaccard", "#02a0c8")`**: presence / absence, ignores abundance and phylogenetic information
+  - **`r colorize("Aitchison", "#02a0c8")`**: take into consideration the compositional structure of the data. Dissimilarity measure calculated as the Euclidean distance between samples after performing a centered log ratio (clr) transformation.
+  
+- **Ordination/dimention reduction methods** 
+  - **`r colorize("PCoA/MDS", "#02a0c8")`**: extension of Principal Components Analysis (PCA),  detect linear trends
+  - **`r colorize("NMDS", "#02a0c8")`**: mon-metric multidimensional scaling can detect non-linear patterns
+  - **`r colorize("TSNE", "#02a0c8")`**: 
+  - **`r colorize("UMAP", "#02a0c8")`**: 
+  
+
+
+```{r}
+load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
+```
+
+
+```{r}
+assay <- "CPM"
+
+### Strange plot when using tse, probably UNMAPPED explain all the variation on first axis??
+tse <- runMDS(tse, FUN = vegan::vegdist, method = "bray", name = "PCoA_withUNMAPPED", exprs_values = assay, keep_dist = T)
+
+set.seed(40)
+tse <- runNMDS(tse, FUN = vegan::vegdist, method = "bray", name = "NMDS_withUNMAPPED", exprs_values = assay, keep_dist = T)
+
+
+set.seed(122)
+tse <- runTSNE(tse, name = "TSNE_withUNMAPPED", exprs_values=assay)
+set.seed(122)
+tse <- runUMAP(tse, name = "UMAP_withUNMAPPED", exprs_values=assay)
+```
+
+
+```{r}
+tse_KEGGOnly <- runMDS(tse_KEGGOnly, FUN = vegan::vegdist, method = "bray", name = "PCoA_KEGGOnly", exprs_values = assay, keep_dist = T)
+set.seed(40)
+
+tse_KEGGOnly <- runNMDS(tse_KEGGOnly, FUN = vegan::vegdist, method = "bray", name = "NMDS_KEGGOnly", exprs_values = assay, keep_dist = T)
+set.seed(40)
+
+
+# Alternative methods to try
+# not easy to change the metric for UMAP, no braycurtis dissimilarity in package uwot
+set.seed(122)
+tse_KEGGOnly <- runTSNE(tse_KEGGOnly, name = "TSNE_KEGGOnly", exprs_values=assay)
+set.seed(122)
+tse_KEGGOnly <- runUMAP(tse_KEGGOnly, name = "UMAP_KEGGOnly", exprs_values=assay)
+```
+
+```{r}
+reducedDim(tse, type ="PCoA_KEGGOnly") <- reducedDim(tse_KEGGOnly, "PCoA_KEGGOnly")
+reducedDim(tse, type ="NMDS_KEGGOnly") <- reducedDim(tse_KEGGOnly, "NMDS_KEGGOnly")
+reducedDim(tse, type ="TSNE_KEGGOnly") <- reducedDim(tse_KEGGOnly, "TSNE_KEGGOnly")
+reducedDim(tse, type ="UMAP_KEGGOnly") <- reducedDim(tse_KEGGOnly, "UMAP_KEGGOnly")
+```
+
+```{r}
+tse_for_ordination <- tse
+add_name <- "_withUNMAPPED"
+
+tse_for_ordination <- tse_KEGGOnly
+add_name <- "_KEGGOnly"
+
+if(assay == "relabundance") data_assay <- "_rel" 
+if(assay == "CPM") data_assay <- "_cpm"
+```
+
+
+## PCoA Bray-Curtis
+
+Almost the same representation when done on filtered data `tse_sub`.
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse_for_ordination, paste("PCoA", add_name, sep=""),
+                      sd_threshold=0.01, data_type="Functional", assay=assay)
+e <- attr(reducedDim(tse_for_ordination, paste("PCoA", add_name, sep="")), "eig");
+rel_eig <- e/sum(e[e>0])          
+x_lab = paste("PCoA 1 (", round(100 * rel_eig[[1]],1), "%", ")", sep = "")
+y_lab = paste("PCoA 2 (", round(100 * rel_eig[[2]],1), "%", ")", sep = "")
+
+PartHsd_PCoA_BC <- pp$Participants_high_sd
+p1 <- pp$p_gruppe + labs(x=x_lab, y=y_lab)
+p2 <- pp$p_topdom
+p3 <- pp$p_2ndtopdom
+p4 <- pp$p_inter_treat + labs(x=x_lab, y=y_lab)
+p5 <- pp$p_part + labs(x=x_lab, y=y_lab)
+p6 <- pp$p_hv_part + labs(x=x_lab, y=y_lab)
+p7 <- pp$p_total_ab + labs(x=x_lab, y=y_lab)
+```
+Warning message: "'clr' includes negative values. Agglomeration of it might lead to meaningless values." comes from `plot_ordination()` when identifying the most dominant taxa for a specific rank. We can ignore it as we use 'relabudance' assays for identifying dominant taxa.
+
+```{r fig.height=7, fig.width=10, message=FALSE, paged.print=FALSE}
+p2
+```
+
+```{r}
+KEGG_multi <- names(abundance_CPM)[1:13]
+
+p_list <- list()
+for(i in seq(length(KEGG_multi))){
+KEGG <- KEGG_multi[i]
+p_list[[i]] <- plot_ordination(tse, paste("PCoA", add_name, sep=""), functional_id=KEGG, data_type="Functional", assay=assay, top_dom=F)$p_1spec 
+}
+```
+
+
+```{r}
+ggsave(paste(path_analysis, "Ordination_plots/PCoA", add_name, data_assay, ".png", sep=""), 
+       p1 + p5 + p2+ p4 + p6 + p3+ p7 + plot_layout(guides = 'collect'), 
+       width=27, height=20)
+
+
+ggsave(paste(path_analysis, "Ordination_plots/PCoA", add_name, data_assay, "_withAbundance.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+
+
+## NMDS Bray-Curtis
+
+Almost the same representation when done on filtered data `tse_sub`.
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse_for_ordination, paste("NMDS", add_name, sep=""), 
+                      sd_threshold=0.05, data_type="Functional", assay=assay)
+PartHsd_NMDS_BC <- pp$Participants_high_sd
+p1 <- pp$p_gruppe 
+p2 <- pp$p_topdom
+p3 <- pp$p_2ndtopdom
+p4 <- pp$p_inter_treat 
+p5 <- pp$p_part 
+p6 <- pp$p_hv_part
+p7 <- pp$p_total_ab 
+```
+
+
+```{r fig.height=7, fig.width=10, message=FALSE, paged.print=FALSE}
+p2
+```
+
+```{r}
+KEGG_multi <- names(abundance_CPM)[1:13]
+
+p_list <- list()
+for(i in seq(length(KEGG_multi))){
+KEGG <- KEGG_multi[i]
+p_list[[i]] <- plot_ordination(tse, paste("NMDS", add_name, sep=""), functional_id=KEGG, data_type="Functional", assay=assay, top_dom=F)$p_1spec 
+}
+```
+
+
+```{r}
+ggsave(paste(path_analysis, "Ordination_plots/NMDS", add_name, data_assay,".png", sep=""), 
+       p1 + p5 + p2+ p4 + p6 + p3+ p7 + plot_layout(guides = 'collect'), 
+       width=27, height=20)
+
+ggsave(paste(path_analysis, "Ordination_plots/NMDS", add_name, data_assay, "_withAbundance.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+
+
+## TSNE
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
+pp <- plot_ordination(tse_for_ordination, paste("TSNE", add_name, sep=""),
+                      sd_threshold=10, data_type="Functional", assay=assay)
+PartHsd_TSNE <- pp$Participants_high_sd
+p1 <- pp$p_gruppe 
+p2 <- pp$p_topdom
+p3 <- pp$p_2ndtopdom
+p4 <- pp$p_inter_treat 
+p5 <- pp$p_part 
+p6 <- pp$p_hv_part
+p7 <- pp$p_total_ab 
+```
+
+
+```{r fig.height=7, fig.width=10, message=FALSE, paged.print=FALSE}
+p2
+```
+
+```{r}
+KEGG_multi <- names(abundance_CPM)[1:13]
+
+p_list <- list()
+for(i in seq(length(KEGG_multi))){
+KEGG <- KEGG_multi[i]
+p_list[[i]] <- plot_ordination(tse, paste("TSNE", add_name, sep=""), functional_id=KEGG, data_type="Functional", assay=assay, top_dom=F)$p_1spec 
+}
+```
+
+
+```{r}
+ggsave(paste(path_analysis, "Ordination_plots/TSNE", add_name, data_assay,".png", sep=""),
+       p1 + p5 + p2+ p4 + p6 + p3+ p7 + plot_layout(guides = 'collect'), 
+       width=27, height=20)
+
+ggsave(paste(path_analysis, "Ordination_plots/TSNE", add_name, data_assay, "_withAbundance.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+
+## UMAP
+
+
+
+```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE}
+pp <- plot_ordination(tse_for_ordination, paste("UMAP", add_name, sep=""), sd_threshold=2, data_type="Functional", assay=assay)
+PartHsd_UMAP <- pp$Participants_high_sd
+p1 <- pp$p_gruppe
+p2 <- pp$p_topdom
+p3 <- pp$p_2ndtopdom
+p4 <- pp$p_inter_treat 
+p5 <- pp$p_part 
+p6 <- pp$p_hv_part
+p7 <- pp$p_total_ab
+```
+
+
+```{r fig.height=7, fig.width=10, message=FALSE, paged.print=FALSE}
+p2
+```
+
+```{r}
+KEGG_multi <- names(abundance_CPM)[1:13]
+
+p_list <- list()
+for(i in seq(length(KEGG_multi))){
+KEGG <- KEGG_multi[i]
+p_list[[i]] <- plot_ordination(tse, paste("UMAP", add_name, sep=""), functional_id=KEGG, data_type="Functional", assay=assay, top_dom=F)$p_1spec 
+}
+```
+
+
+```{r}
+ggsave(paste(path_analysis, "Ordination_plots/UMAP", add_name, data_assay, ".png", sep=""),
+       p1 + p5 + p2+ p4 + p6 + p3+ p7 + plot_layout(guides = 'collect'), 
+       width=27, height=20)
+
+ggsave(paste(path_analysis, "Ordination_plots/UMAP", add_name, data_assay, "_withAbundance.png", sep=""), 
+       wrap_plots(p_list, ncol=4) , 
+       width=30, height=20)
+```
+
+  
+
+# Saving tse
+```{r}
+save(tse, tse_KEGGOnly, file=paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
+# data with ordination made on CPM
+# To keep same ordination (ran on Computer office)
+```
+
+
+# Bar plots
+
+```{r fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+n_taxa <- 50
+cols_mod <- cols
+cols_mod[n_taxa+1] <- "lightgrey"
+
+physeq_KEGGOnly_noFact  %>%
+  ps_select(Participant_ID, Inter_treat) %>%
+  phyloseq::merge_samples(group = "Inter_treat") %>%
+  comp_barplot(tax_level = "KEGG", n_taxa = n_taxa, bar_width = 0.9, palette=cols_mod,
+               tax_transform_for_plot="identity", bar_outline_colour = NA,
+               sample_order=c("Before.Yogurt", "After.Yogurt", "Before.YogurtOatmeal", "After.YogurtOatmeal")) +
+  labs(x = NULL, y = NULL) + guides(fill = guide_legend(ncol = 1, reverse=TRUE)) +theme(legend.key.size = unit(0.5, 'cm'))
+```
+
+
+
+
+
+# Beta diversity
+
+
+```{r message=FALSE}
+metadata <- as.data.frame(colData(tse))
+assay_t2 <- assay_t <- t(assays(tse)[["CPM"]]) %>% as.data.frame()
+KEGG <- colnames(assay_t2)
+assay_t2$Sample_ID <- rownames(assay_t2)
+assay_t2 <- merge(metadata, assay_t2, by="Sample_ID")
+
+assay_t_Y <- subset(assay_t2,  Intervention== "Yogurt")
+assay_t_YO <- subset(assay_t2,  Intervention== "YogurtOatmeal")
+assay_t_Y <- assay_t_Y[, KEGG]
+assay_t_YO <- assay_t_YO[, KEGG]
+```
+
+```{r}
+Perct0 <- apply(assay_t, 2, function(x) sum(x==0)/nrow(assay_t)*100)
+Perct0_Y <- apply(assay_t_Y, 2, function(x) sum(x==0)/nrow(assay_t_Y)*100)
+Perct0_YO <- apply(assay_t_YO, 2, function(x) sum(x==0)/nrow(assay_t_YO)*100)
+
+hist(Perct0)
+```
+
+
+```{r}
+KEGG_infos <- data.frame(Perct0, Perct0_Y, Perct0_YO)
+KEGG_infos$KEGG <- rownames(KEGG_infos)
+KEGG_infos$prev <- 100-KEGG_infos$Perct0
+KEGG_infos$prev_Y <- 100-KEGG_infos$Perct0_Y
+KEGG_infos$prev_YO <- 100-KEGG_infos$Perct0_YO
+KEGG_infos <- KEGG_infos[, c(4,1:3,5:7)]
+```
+
+```{r}
+# subset(KEGG_infos, Perct0_YO==0 & Perct0>0) # 7   7
+# subset(KEGG_infos, Perct0_Y==0 & Perct0>0) # 93  7
+
+KEGG_perct0_0 <- subset(KEGG_infos, Perct0 <= 0)$KEGG
+KEGG_perct0_sup0 <- subset(KEGG_infos, Perct0 > 0)$KEGG
+KEGG_no_fitted <- KEGG_infos[which(!(KEGG_infos$KEGG %in% KEGG_perct0_0) & !(KEGG_infos$KEGG %in% KEGG_perct0_sup0)), "KEGG"]
+
+KEGG_perct0_0_Y <- subset(KEGG_infos, Perct0_Y <= 0)$KEGG
+KEGG_perct0_sup0_Y <- subset(KEGG_infos, Perct0_Y > 0 )$KEGG
+KEGG_no_fitted_Y <- KEGG_infos[which(!(KEGG_infos$KEGG %in% KEGG_perct0_0_Y) & !(KEGG_infos$KEGG %in% KEGG_perct0_sup0_Y)), "KEGG"]
+
+KEGG_perct0_0_YO <- subset(KEGG_infos, Perct0_YO <= 0)$KEGG
+KEGG_perct0_sup0_YO <- subset(KEGG_infos, Perct0_YO > 0)$KEGG
+KEGG_no_fitted_YO <- KEGG_infos[which(!(KEGG_infos$KEGG %in% KEGG_perct0_0_YO) & !(KEGG_infos$KEGG %in% KEGG_perct0_sup0_YO)), "KEGG"]
+```
+
+
+```{r}
+length(KEGG_perct0_0) # 62 KEGG have no zero values in both intervention
+length(KEGG_perct0_sup0) # 905 KEGG have zero values in at least one of the intervention
+length(KEGG_no_fitted)
+# [1] 62
+# [1] 905
+# [1] 0
+
+length(KEGG_perct0_0_Y) # 155 (62 + 93) KEGG have no zero values in Yogurt
+length(KEGG_perct0_sup0_Y) # 812 KEGG have zero values in Yogurt
+length(KEGG_no_fitted_Y)
+# [1] 155
+# [1] 812
+# [1] 0
+
+length(KEGG_perct0_0_YO)  # 69 (62 + 7) KEGG have no zero values in YogurtOatmeal
+length(KEGG_perct0_sup0_YO)  # 898 KEGG have zero values in YogurtOatmeal
+length(KEGG_no_fitted_YO)
+# [1] 69
+# [1] 898
+# [1] 0
+```
+
+## transformation no covariates
+
+
+```{r message=FALSE}
+assay_t <- t(assays(tse)[["CPM"]]) %>% as.data.frame()
+KEGG <- colnames(assay_t)
+assay_t$Sample_ID <- rownames(assay_t)
+metadata <- as.data.frame(colData(tse))
+DF <- merge(metadata, assay_t, by="Sample_ID")
+DF_subs <- prepare_DATA(DF, NULL)
+```
+
+```{r}
+#### Model full
+compar_var = "T"
+DF_work=DF_subs$DF
+compa = "full"
+FE <- c("B", "T", "C1", "C2")
+RE <- "Participant_ID"
+KEGG_to_use <- KEGG_perct0_0
+KEGG_to_use_w0 <- KEGG_perct0_sup0
+
+#### Model Y
+compar_var = "B"
+DF_work=DF_subs$DF_int1
+compa = "Y"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+KEGG_to_use <- KEGG_perct0_0_Y
+KEGG_to_use_w0 <- KEGG_perct0_sup0_Y
+
+#### Model YO
+compar_var = "B"
+DF_work=DF_subs$DF_int2
+compa = "YO"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+KEGG_to_use <- KEGG_perct0_0_YO
+KEGG_to_use_w0 <- KEGG_perct0_sup0_YO
+```
+
+
+### LMER on KEGG without zeroes
+```{r}
+model <- "lmer_bc"
+trans <- ""
+sig_threshold <- 0.03
+```
+
+```{r}
+trans_var <- rep("bc", length(KEGG_to_use))
+names(trans_var) <- KEGG_to_use
+DF_work_mod <- transform_data(DF_work, trans_var)
+measures_Trans <- sapply(names(trans_var), function(x) if(trans_var[[x]] !="") paste(x, trans_var[[x]], sep="_") else x)
+```
+
+
+```{r}
+tic()
+# lmer
+wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
+setwd(wd0)
+run_taxa_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("lmer_bc_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("lmer_bc/", compa, "/", sep=""))
+toc()
+# Model full: 44.03 sec elapsed
+# Model Y:  76.57 sec elapsed
+# Model YO: 39.26 sec elapsed
+```
+
+
+
+### ZIG on KEGG with zeroes
+```{r}
+library(NBZIMM)
+```
+
+
+```{r}
+model <- "NBZIMM_asinsqrt"
+trans <- ""
+sig_threshold <- 0.03
+```
+
+```{r}
+DF_work_mod=DF_work
+DF_work_mod[,KEGG] <- asin(sqrt(DF_work_mod[, KEGG]/1000000)) 
+```
+
+```{r}
+tic()
+# ZIG
+wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
+setwd(wd0)
+run_taxa_model(KEGG_to_use_w0, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("NBZIMM_asinsqrt/", compa, "/", sep=""))
+toc()
+# Model full: 418.33 sec elapsed
+# Model Y: 353.39 sec elapsed
+# Model YO: 399.87 sec elapsed
+```
+
+### ZIG on all KEGG run by Kun (Same results than previous section)
+
+
+```{r message=FALSE}
+assay_t <- t(assays(tse)[["CPM"]]) %>% as.data.frame()
+KEGG <- colnames(assay_t)
+assay_t$Sample_ID <- rownames(assay_t)
+metadata <- as.data.frame(colData(tse))
+
+DF_full <- merge(metadata, assay_t, by="Sample_ID")
+DF_Y <- subset(DF_full,  Intervention== "Yogurt")
+DF_YO <- subset(DF_full,  Intervention== "YogurtOatmeal")
+
+DF_Y <- droplevels(DF_Y)  
+DF_YO <- droplevels(DF_YO)  
+```
+
+#### Model full
+```{r}
+#### Model full
+compar_var = "T"
+DF_work=DF_full
+compa = "full"
+FE <- c("B", "T", "C1", "C2")
+RE <- "Participant_ID"
+```
+
+```{r}
+DF_work_mod=DF_work
+DF_work_mod[, KEGG] <- asin(sqrt(DF_work_mod[, KEGG]/1000000)) 
+```
+
+```{r}
+### RAN BY KUN
+# # ZIG
+# wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
+# setwd(wd0)
+# run_taxa_model(KEGG, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_asinsqrt_", compa, sep=""), check_mod=F, save_mod=F,  path=paste("NBZIMM_asinsqrt_Kun/", compa, "/", sep=""), save_final_files=F)
+```
+
+```{r}
+model <- "NBZIMM_asinsqrt"
+
+path <- paste(path_analysis, "ResultsBetadiv/NBZIMM_asinsqrt_Kun/", compa, "/",  sep="")
+
+res_all_full <- read.table(file=paste(path, model, "_", compa,"_res_all_results.tsv", sep=""))
+res_anov_all_full <- read.table(file=paste(path, model, "_", compa,"_res_anov_results.tsv", sep=""))
+PRS_all_full <- read.table(file=paste(path, model, "_", compa,"_PRS_all_results.tsv", sep=""))
+```
+
+
+
+#### Model Y
+```{r}
+#### Model Y
+compar_var = "B"
+DF_work=DF_Y
+compa = "Y"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+```
+
+
+```{r}
+DF_work_mod=DF_work
+DF_work_mod[,KEGG] <- asin(sqrt(DF_work_mod[, KEGG]/1000000)) 
+```
+
+
+```{r}
+### RAN BY KUN
+# # ZIG
+# wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
+# setwd(wd0)
+# run_taxa_model(KEGG, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_asinsqrt_", compa, sep=""), check_mod=F, save_mod=F,  path=paste("NBZIMM_asinsqrt_Kun/", compa, "/", sep=""), save_final_files=F)
+```
+
+```{r}
+model <- "NBZIMM_asinsqrt"
+
+path <- paste(path_analysis, "ResultsBetadiv/NBZIMM_asinsqrt_Kun/", compa, "/", sep="")
+
+res_all_Y <- read.table(file=paste(path, model, "_", compa,"_res_all_results.tsv", sep=""))
+res_anov_all_Y <- read.table(file=paste(path, model, "_", compa,"_res_anov_results.tsv", sep=""))
+PRS_all_Y <- read.table(file=paste(path, model, "_", compa,"_PRS_all_results.tsv", sep=""))
+```
+
+
+
+
+
+#### Model YO
+```{r}
+#### Model YO
+compar_var = "B"
+DF_work=DF_YO
+compa = "YO"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+```
+
+
+```{r}
+DF_work_mod=DF_work
+DF_work_mod[,KEGG] <- asin(sqrt(DF_work_mod[, KEGG]/1000000)) 
+```
+
+```{r}
+### RAN BY KUN
+# # ZIG
+# wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
+# setwd(wd0)
+# run_taxa_model(KEGG, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_asinsqrt_", compa, sep=""), check_mod=F, save_mod=F,  path=paste("NBZIMM_asinsqrt_Kun/", compa, "/", sep=""), save_final_files=F)
+```
+
+```{r}
+model <- "NBZIMM_asinsqrt"
+
+path <- paste(path_analysis, "ResultsBetadiv/NBZIMM_asinsqrt_Kun/", compa, "/", sep="")
+
+res_all_YO <- read.table(file=paste(path, model, "_", compa,"_res_all_results.tsv", sep=""))
+res_anov_all_YO <- read.table(file=paste(path, model, "_", compa,"_res_anov_results.tsv", sep=""))
+PRS_all_YO <- read.table(file=paste(path, model, "_", compa,"_PRS_all_results.tsv", sep=""))
+```
+
+
+
+
