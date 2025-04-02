@@ -65,11 +65,13 @@ plot_ordination <- function(tse, ordi_name, sd_threshold=NULL, rank_dominance="F
                             assay="relabundance", top_dom=T){
   
   if(data_type=="Taxonomy"){
-    tse <- addPerSampleDominantTaxa(tse, rank = rank_dominance, name="dominant_feature", assay_name=assay)
+   # tse <- addPerSampleDominantTaxa(tse, rank = rank_dominance, name="dominant_feature", assay_name=assay)
+    tse <- addDominant(tse, group = rank_dominance, name="dominant_feature", assay.type=assay)
     
     if(!is.null(genus_id)){
       tse_gen <- agglomerateByRank(tse, rank="Genus")
-      colData(tse)$abundance  <- getAbundanceFeature(tse_gen, feature_id = genus_id, assay.type = assay)
+      # colData(tse)$abundance  <- getAbundanceFeature(tse_gen, feature_id = genus_id, assay.type = assay)
+      colData(tse)$abundance <- assay(tse_gen, assay)[genus_id,]
       title_plot <- genus_id
     }
   }
@@ -97,7 +99,8 @@ plot_ordination <- function(tse, ordi_name, sd_threshold=NULL, rank_dominance="F
     }
     
     if(!is.null(functional_id)){
-      colData(tse)$abundance  <- getAbundanceFeature(tse, feature_id = functional_id, assay.type = assay) # was CPM
+      # colData(tse)$abundance  <- getAbundanceFeature(tse, feature_id = functional_id, assay.type = assay) # was CPM
+      colData(tse)$abundance <- assay(tse, assay)[functional_id,]
       title_plot <- functional_id
     }
   }
@@ -113,14 +116,11 @@ plot_ordination <- function(tse, ordi_name, sd_threshold=NULL, rank_dominance="F
   }
   
   Participants_df <- subset(df, Timepoint=="T2")
-  #Participants_df <- subset(df, Timepoint=="T1") # for covid study
   Participants_df$V2 <- Participants_df$V2 - (IQR(Participants_df$V2)/15)
   
   if(!is.null(sd_threshold)){
     Participants_toPrint <- df %>% group_by(Participant_ID) %>% dplyr::summarise(V1 = sd(V1), V2 = sd(V2))
     Participants_toPrint <- subset(Participants_toPrint, V1 >sd_threshold | V2>sd_threshold)$Participant_ID
-    # print(paste("Participants with a sd > ", sd_threshold, " : ", sep=""))
-    # print(as.character(Participants_toPrint))
     Participants_df_sub <- subset(Participants_df, Participant_ID %in% Participants_toPrint)
   }
   

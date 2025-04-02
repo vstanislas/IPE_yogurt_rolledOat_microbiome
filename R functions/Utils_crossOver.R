@@ -1854,7 +1854,8 @@ save_plots_varsignificant <- function(sig_res, DF, savingName, tse, compar_var, 
   cat(green( paste("Create sigTaxaInter_byTime", second_facet, ".png \n", sep="")))
   pp_list <- list()
   for(i in seq(length(taxa))){
-    colData(tse)$abundance <- getAbundanceFeature(tse, feature_id = taxa[i], abund_values = abund_values)
+    # colData(tse)$abundance <- getAbundanceFeature(tse, feature_id = taxa[i], abund_values = abund_values)
+    colData(tse)$abundance <- assay(tse, abund_values)[taxa[i],]
     pp_i <- plot_sample_measure_CO(tse, "abundance", taxa[i], trans = "psd_log", x="Timepoint", print_table=F, colorInter=T, counts=counts) 
     if(!is.null(second_facet)) pp_list[[i]] <- pp_i + facet_grid(paste(second_facet, "~ Gruppe", sep="")) 
     else pp_list[[i]] <- pp_i
@@ -1865,7 +1866,8 @@ save_plots_varsignificant <- function(sig_res, DF, savingName, tse, compar_var, 
   cat(green( paste("Create sigTaxaInter_byTreat", second_facet, ".png \n", sep="")))
   pp_list <- list()
   for(i in seq(length(taxa))){
-    colData(tse)$abundance <- getAbundanceFeature(tse, feature_id = taxa[i], abund_values = abund_values)
+    # colData(tse)$abundance <- getAbundanceFeature(tse, feature_id = taxa[i], abund_values = abund_values)
+    colData(tse)$abundance <- assay(tse, abund_values)[taxa[i],]
     pp_i <- plot_sample_measure_CO(tse,  "abundance", taxa[i], trans = "psd_log", print_table=F, counts=counts)  
     if(!is.null(second_facet)) pp_list[[i]] <- pp_i + facet_grid(paste(second_facet, "~ Intervention", sep="")) 
     else pp_list[[i]] <- pp_i
@@ -2220,26 +2222,20 @@ extract_Rosner_res <- function(file, q.value_tresh=1, p.value_tresh=1, name_leve
 
 library("xlsx")
 print_Rosner_model <- function(path_analysis, model, q.value_tresh=1, p.value_tresh=1,
-                               inter1, inter2, additional_name=NULL, additional_name2=NULL, 
-                               additional_name3=NULL, name=model, print=T,  order=F, 
-                               option1=T, col_rot=0, dif_full="Y-YO", group_name=NULL, 
-                               custom_order=NULL, remove_patterns = NULL, new_patterns=NULL, change_feature_name=NULL,
-                               toKeep=NULL){
+                               inter1, inter2, additional_name=NULL, name=model, print=T,  
+                               order=F, col_rot=0, dif_full="Y-YO", group_name=NULL, 
+                               custom_order=NULL, remove_patterns = NULL, new_patterns=NULL, 
+                               change_feature_name=NULL, toKeep=NULL){
   
   
   dif_inter1 <- paste(inter1, "-B", sep="")
   dif_inter2 <- paste(inter2, "-B", sep="")
   
-  path_analysis_model <- paste(path_analysis, model, additional_name2, sep="")
-  if(option1){
-    file_full <- paste(path_analysis_model , "Model_full", additional_name, "_results.xlsx", sep="")
-    file_inter1 <- paste(path_analysis_model , "Model_", inter1, additional_name, "_results.xlsx", sep="")
-    file_inter2 <- paste(path_analysis_model , "Model_", inter2, additional_name, "_results.xlsx", sep="")
-  }else {
-    file_full <- paste(path_analysis_model , "/full", additional_name, "/", model, "_full", additional_name, "_results", additional_name3, ".xlsx", sep="")
-    file_inter1 <- paste(path_analysis_model , "/", inter1, additional_name, "/", model, "_", inter1, additional_name, "_results", additional_name3, ".xlsx", sep="")
-    file_inter2 <- paste(path_analysis_model , "/", inter2, additional_name, "/", model, "_", inter2, additional_name, "_results", additional_name3, ".xlsx", sep="")
-  }
+
+  file_full <- paste(path_analysis , model, "_full", additional_name, "_results.xlsx", sep="")
+  file_inter1 <- paste(path_analysis , model, "_", inter1, additional_name, "_results.xlsx", sep="")
+  file_inter2 <- paste(path_analysis , model, "_", inter2, additional_name, "_results.xlsx", sep="")
+
   
   # Use results from pairwise comparison in PRS_all
   
@@ -2385,101 +2381,4 @@ create_heatmap <- function(res_prt, res, res.qval, name, col_rot){
   return(HM)
 }
 
-
-# library("xlsx")
-# print_Rosner_model <- function(path_analysis, model, q.value_tresh=1, p.value_tresh=1, 
-#                                inter1, inter2, additional_name=NULL, additional_name2=NULL, 
-#                                additional_name3=NULL, name=model, print=T,  order=F, 
-#                                option1=T, col_rot=0, dif_full="Y-YO"){
-#   
-#   
-#   path_analysis_model <- paste(path_analysis, model, additional_name2, sep="")
-#   if(option1){
-#     file_full <- paste(path_analysis_model , "Model_full", additional_name, "_results.xlsx", sep="")
-#     file_inter1 <- paste(path_analysis_model , "Model_", inter1, additional_name, "_results.xlsx", sep="")
-#     file_inter2 <- paste(path_analysis_model , "Model_", inter2, additional_name, "_results.xlsx", sep="")
-#   }else {
-#     file_full <- paste(path_analysis_model , "/full", additional_name, "/", model, "_full", additional_name, "_results", additional_name3, ".xlsx", sep="")
-#     file_inter1 <- paste(path_analysis_model , "/", inter1, additional_name, "/", model, "_", inter1, additional_name, "_results", additional_name3, ".xlsx", sep="")
-#     file_inter2 <- paste(path_analysis_model , "/", inter2, additional_name, "/", model, "_", inter2, additional_name, "_results", additional_name3, ".xlsx", sep="")
-#   }
-#   
-#   # Use results from pairwise comparison in PRS_all
-#   
-#   if(file.exists(file_full)){
-#     res <- extract_Rosner_res(file_full, q.value_tresh, p.value_tresh, dif_full)
-#     res_after_prt <- res[, c(1,3,4)]
-#     res_after <- res[, 1:2]
-#   }else{
-#     res_after <- data.frame(feature=NA, level_sig=NA)
-#     res_after <- dplyr::rename(res_after, `Y-YO`=level_sig)
-#     res_after_prt <- data.frame(feature=NA, est=NA, q.val=NA)
-#     res_after_prt <- dplyr::rename(res_after_prt, `Y-YO.est`=est)
-#     res_after_prt <- dplyr::rename(res_after_prt, `Y-YO.q.val`=q.val)
-#   }
-#   
-#   if(file.exists(file_inter1)){
-#     res <- extract_Rosner_res(file_inter1, q.value_tresh, p.value_tresh, "Y-B")
-#     res_Int1_prt <- res[, c(1,3,4)]
-#     res_Int1 <- res[, 1:2]
-#   }else{
-#     res_Int1 <- data.frame(feature=NA, level_sig=NA)
-#     res_Int1 <- dplyr::rename(res_Int1, `Y-B`=level_sig)
-#     res_Int1_prt <- data.frame(feature=NA, est=NA, q.val=NA)
-#     res_Int1_prt <- dplyr::rename(res_Int1_prt, `Y-B.est`=est)
-#     res_Int1_prt <- dplyr::rename(res_Int1_prt, `Y-B.q.val`=q.val)
-#   }
-#   
-#   if(file.exists(file_inter2)){
-#     res <- extract_Rosner_res(file_inter2, q.value_tresh, p.value_tresh, "YO-B")
-#     res_Int2_prt <- res[, c(1,3,4)]
-#     res_Int2 <- res[, 1:2]
-#   }else{
-#     res_Int2 <- data.frame(feature=NA, level_sig=NA)
-#     res_Int2 <- dplyr::rename(res_Int2, `YO-B`=level_sig)
-#     res_Int2_prt <- data.frame(feature=NA, est=NA, q.val=NA)
-#     res_Int2_prt <- dplyr::rename(res_Int2_prt, `YO-B.est`=est)
-#     res_Int2_prt <- dplyr::rename(res_Int2_prt, `YO-B.q.val`=q.val)
-#   }
-#   
-#   
-#   res <- merge(res_after, res_Int1, by="feature", all=T, sort=F)
-#   res <- merge(res, res_Int2, by="feature", all=T, sort=F)
-#   res <- subset(res, !is.na(feature))
-#   #res[is.na(res)] <- 0
-#   rownames(res) <- res$feature
-#   if(order) res <- res[order(res$feature),]
-#   res$feature <-NULL
-#   
-#   res_prt <- merge(res_after_prt, res_Int1_prt, by="feature", all=T, sort=F)
-#   res_prt <- merge(res_prt, res_Int2_prt, by="feature", all=T, sort=F)
-#   res_prt <- subset(res_prt, !is.na(feature))
-#   
-#   res_prt$model <- model
-#   rownames(res_prt) <- res_prt$feature
-#   if(order) res_prt <- res_prt[order(res_prt$feature),]
-#   res_prt$feature <-NULL
-#   
-#   res.qval <- res_prt[, c(paste(dif_full, ".q.val", sep=""), "Y-B.q.val", "YO-B.q.val")]
-#   res.qval[is.na(res.qval)] <- 1
-#   cell_fun <- function(j, i, x, y, w, h, fill) {
-#     if(res.qval[i, j] < 0.001) {
-#       grid.text("***", x, y)
-#     } else if(res.qval[i, j] < 0.01) {
-#       grid.text("**", x, y)
-#     }else if(res.qval[i, j] < 0.05) {
-#       grid.text("*", x, y)
-#     }
-#   }
-#   
-#   HM <- Heatmap(as.matrix(res), name=name, cell_fun=cell_fun, col= col_fun_div, 
-#                 cluster_rows=F, row_names_side = "left", cluster_columns=F, 
-#                 row_names_max_width = unit(9, "cm"), column_names_rot = col_rot, 
-#                 column_names_centered =T)
-#   
-#   # if(print) print(res_prt)
-#   if(print) return(list(HM=HM, res_prt=res_prt, res=res))
-#   else  return(HM)
-# }
-# 
 

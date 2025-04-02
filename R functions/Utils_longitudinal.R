@@ -10,26 +10,9 @@ plot_sample_measure <- function(DF, measure, subtitle="", x= "Treatment", colorI
   guides_col <- "none"
   if(!("Inter_treat" %in% colnames(DF))) Inter_treat = NULL
   
-  #######  For covid study
-  if(class(DF) == "TreeSummarizedExperiment"){
-    DF <- as.data.frame(colData(DF))
-  }  
-  
-  if(measure == "abundance") {
-    DF <-  data.table::setnames(DF, "abundance", subtitle)
-    measure <- subtitle
-    subtitle <- NULL
-  }
-  #######  For covid study
   
   if(colorInter) cols <- cols_Inter_treat
   
-# Move to plot_sample_measure_CO() maybe generate errors?
-  # if(measure == "abundance") {
-  #   DF <-  data.table::setnames(DF, "abundance", subtitle)
-  #   measure <- subtitle
-  #   subtitle <- NULL
-  # }
   nb_ind <- length(unique(DF$Participant_ID))
   
   ## Calculate difference between time-points or treatments
@@ -60,10 +43,7 @@ plot_sample_measure <- function(DF, measure, subtitle="", x= "Treatment", colorI
   
   if(line_diff){
     if(color_lines=="Diff"){
-      # line_sub <- subset(DF, !is.na(Diff)) 
-      # to remove warning message `new_geom_line()`: Each group consists of only one observation.
-      # as there is no lines to print for the follow up (only "baseline" values, no "after") SAUERKRAUT
-      line_sub <- DF # need to see lines connecting data point with missing values for COVID BLOOD
+      line_sub <- DF
       col_lines <- c(Decrease="#700054", Increase="#02a0c8", Unchange="#ff8d3f")
     } else {
       line_sub <- DF
@@ -76,10 +56,6 @@ plot_sample_measure <- function(DF, measure, subtitle="", x= "Treatment", colorI
       scale_colour_manual(values= col_lines)+ 
      guides(color=guides_col)
     
-    # pp <- pp + geom_point(size=2, color="gray70") + 
-    #   geom_line(data= line_sub, aes(group=Participant_ID, color=Diff), linewidth=linewidth_diff, alpha=0.2) + 
-    #   scale_colour_manual(values= c(Decrease="#700054", Increase="#02a0c8", Unchange="#ff8d3f"))+ 
-    #   guides(color="none")
     
     if(colorInter){
       if(counts) pp <- pp +  new_scale_color() + 
