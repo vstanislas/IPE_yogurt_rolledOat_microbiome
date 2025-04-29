@@ -9,7 +9,7 @@ Initial release: DOI: 10.5281/zenodo.15294728
 
 ## Blood markers
 
-- DataPreparation/BloodMarkers/22-026 Michels 8 serum.xlsx: Blood marker measurements (Zonulin)
+- `DataPreparation/BloodMarkers/22-026 Michels 8 serum.xlsx`: Blood marker measurements (Zonulin)
 - DataPreparation/BloodMarkers/22-027 Michels 9 plasma.xlsx: Blood marker measurements (TNFR2, Interleukin-6, sRAGE, 8-OHdG)
 - DataPreparation/BloodMarkers/JH_Serum_Zentrallabor_2022-08-19.xlsx: Blood marker measurements (Fructosamine, CRP)
 
@@ -29,3 +29,5 @@ Initial release: DOI: 10.5281/zenodo.15294728
 
 
 Work in progress
+
+       
