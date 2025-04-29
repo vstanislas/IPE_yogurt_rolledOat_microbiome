@@ -31,7 +31,7 @@ data <- data[,c("Probe", "Probe_dup", "JH-ID", "FRUC", "SCRP", "SI-H")]
 colnames(data)[c(3, 6)] <- c("Sample_ID", "SI_H")
 data$Sample_ID <- gsub("JH-", "ID", data$Sample_ID)
 data <- separate(data, Sample_ID, c("Participant_ID", "Timepoint"), remove=F)
-# generate 4 warning in rows [84, 129, 449, 452] correspond to the samples from KT and KM who do not have timepoints
+
 data$Timepoint <- paste("T", data$Timepoint, sep="")
 data0 <- data
 ```
@@ -48,12 +48,10 @@ data[id_NA, ]
 ```
 Details missing values:
   
-  * Missing values for Probe 82 (ID021 at T2) and 126 (ID033 at T2) that were replaced by KM and KT
   * zwM: for all results of two samples: **replace to NA**
   * nonnumerical values (>15, <0.1) for two values: **set to 15 and 0.1 respectively**
 
 ```{r warning=FALSE, paged.print=FALSE}
-# To validate with Kerstin
 data <- data0
 data[3, "SCRP"] <- 15
 data[124, "SCRP"] <- 0.1
