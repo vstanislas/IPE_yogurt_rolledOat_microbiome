@@ -1,0 +1,754 @@
+---
+title: "Analysis by clusters - kmeans"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+---
+
+```{r include=FALSE}
+library(phyloseq)
+library(ggplot2)
+library(plyr)
+library(ape)
+library(knitr)
+library(vegan)
+library(tidyr)
+library(gridExtra)
+# library(lemon)
+library(RColorBrewer)
+library(dplyr)
+library(cowplot)
+library(scater)
+library(ggnewscale)
+library(mia)
+library(miaViz)
+library(kableExtra)
+library(patchwork)
+library(microViz)
+library(lme4)
+library(emmeans)
+library(flextable)
+library(ggpubr)
+library(reshape)
+```
+
+
+```{r include=FALSE}
+dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
+path_clustering <- paste(dir, "DataAnalysis/Results_Grouped_Analysis/Clustering/", sep="")
+path_results <- paste(dir, "DataAnalysis/Results_Grouped_Analysis/Results_clustering_kmeans_rel_bray/", sep="")
+path_tax_AllSamples <- paste(dir, "DataAnalysis/Results_Complete_Analysis/ResultsTaxonomy/On_relabundance_AllSamples/", sep="")
+
+source(file = paste(dir, "Utils.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir0, "R functions/code_utils.R", sep=""))
+
+cols <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", 
+          Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
+cols_Inter_treat <- cols
+
+colors20 <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9', "grey2")
+```
+
+
+# Load data and grouping info 
+
+```{r}
+### Load data with already ordination and alpha diversity (from Complete_analysis 2.3.1)
+### contains tse, tse_sub, tse_SGB
+load(paste(path_tax_AllSamples, "tse_allwithordination.Rdata", sep=""))
+```
+
+
+```{r}
+### Load clustering results
+name_grouping <- "Kmeans_relabundance_bray"
+load(file = paste(path_clustering, "ResultsAlgo/Kmeans_relabundance_bray_k_3.Rdata", sep=""))
+identical(colData(tse)$Sample_ID, clust_meta$Sample_ID)
+identical(colData(tse_sub)$Sample_ID, clust_meta$Sample_ID)
+colData(tse)$group_info <- clust_meta$clus_km_merged
+colData(tse_sub)$group_info <- clust_meta$clus_km_merged
+clust_meta$group_info <- clust_meta$clus_km_merged
+```
+
+
+```{r}
+cols_T1 <- colors20 [c(3,2,1, 21)]
+plotReducedDim(tse, "UMAP", colour_by = "group_info", shape_by ="Timepoint") + 
+  ggtitle(name_grouping)+ scale_colour_manual(values = cols_T1)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+```
+```{r include=FALSE}
+### reduce data to well classified participant 
+tse2 <- tse[, c(!(tse$group_info == "miss"))]
+tse_sub2 <- tse_sub[, c(!(tse$group_info == "miss"))]
+```
+
+```{r}
+cols_T1 <- colors20 [c(3,2,1, 21)]
+plotReducedDim(tse2, "UMAP", colour_by = "group_info", shape_by ="Timepoint") + 
+  ggtitle(name_grouping)+ scale_colour_manual(values = cols_T1)+  
+  scale_shape_manual(values = c(1, 16, 2, 17, 3))
+```
+
+```{r}
+# nb paticipants in each group
+table(colData(tse2)$group_info)/4
+```
+
+
+
+# Microbiome analysis 
+
+## Alpha diversity
+
+### Plots
+```{r fig.height=10, fig.width=12, warning=FALSE}
+measures <- c("Observed", "Shannon", "Pielou", "Divergence_to_median")
+subtitle <- c("Measure of richness", "Measure of diversity", "Measure of Evenness", "Measure of divergence")
+
+ll_plot <- list()
+for(i in seq(length(measures))){
+  ll_plot[[i]] <- plot_sample_measure_CO(tse2, measures[i], subtitle[i],  x="Timepoint", colorInter = T, print_table=F, line_diff = T) + facet_grid(Gruppe ~ group_info) 
+}
+
+wrap_plots(ll_plot, nrow=2)  + plot_layout(guides = "collect") 
+```
+
+
+
+
+```{r fig.height=10, fig.width=12, warning=FALSE}
+ll_plot <- list()
+for(i in seq(length(measures))){
+  ll_plot[[i]] <- plot_sample_measure_CO(tse2, measures[i], subtitle[i], colorInter = T, print_table=F, line_diff = T) + facet_grid(Intervention ~ group_info) 
+}
+
+wrap_plots(ll_plot, nrow=2)  + plot_layout(guides = "collect") 
+```
+
+```{r}
+measures <- c("Observed", "Pielou", "Simpson_evenness", "Shannon", "Inverse_Simpson", "Faith", "dbp", "Core_abundance", "Log_modulo_skewness", "Divergence_to_median")
+subtitle <- c("Measure of richness", "Measure of Evenness", "Measure of Evenness", "Measure of diversity", "Measure of diversity", "Measure of Phylogenetic diversity", "Measure of Dominance", "Measure of Dominance", "Measure of rarity", "Measure of divergence")
+
+
+ll_plot <- list()
+for(i in seq(length(measures))){
+  ll_plot[[i]] <- plot_sample_measure_CO(tse2, measures[i], subtitle[i],  x="Treatment", colorInter = T, print_table=F, trans = "psd_log", line_diff = T) + facet_grid(Intervention ~ group_info) 
+}
+
+ggsave(paste(path_results, "ResultsAlpha/Alpha_byTreat.png", sep=""), 
+       wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") ,  width=25, height = 15)
+```
+
+```{r}
+ll_plot <- list()
+for(i in seq(length(measures))){
+  ll_plot[[i]] <- plot_sample_measure_CO(tse2, measures[i], subtitle[i],  x="Timepoint", colorInter = T, print_table=F, trans = NULL, line_diff = T) + facet_grid(Gruppe ~ group_info) 
+}
+
+ggsave(paste(path_results, "ResultsAlpha/Alpha_byTime.png", sep=""), 
+       wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") , width=25, height = 15)
+```
+
+### Models
+
+```{r}
+measures <- c("Observed", "Pielou", "Simpson_evenness", "Shannon", "Inverse_Simpson", "Faith", "dbp", "Core_abundance", "Log_modulo_skewness", "Divergence_to_median")
+```
+
+
+#### no transformation  + covariate
+2 participants (ID071, ID090) are removed of the analysis as we do not have their BMI information.
+
+```{r}
+DF <- as.data.frame(colData(tse2))
+DF_subs <- prepare_DATA(DF, NULL)
+measures_noTrans <- measures
+
+clusnb <- "1"
+
+#### Model full
+compar_var = "T"
+DF_work=subset(DF_subs$DF, group_info==clusnb)
+compa = "full"
+FE <- c("B", "T", "C1", "C2",  "Alter", "BMI", "Geschlecht")
+RE <- "Participant_ID"
+```
+
+
+```{r}
+sig_threshold <- 0.05
+wd0 <- paste(path_results, "ResultsAlpha/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(measures_noTrans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("lmer", compa, clusnb, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
+               path=paste("lmer_noTrans_cov/", compa, "_", clusnb, "/", sep=""),
+               verbose=F)
+
+```
+
+
+
+
+#### no transformation
+
+```{r}
+DF <- as.data.frame(colData(tse2))
+DF_subs <- prepare_DATA(DF, NULL)
+measures_noTrans <- measures
+
+clusnb <- "1"
+
+#### Model full
+compar_var = "T"
+DF_work=subset(DF_subs$DF, group_info==clusnb)
+compa = "full"
+FE <- c("B", "T", "C1", "C2")
+RE <- "Participant_ID"
+```
+
+
+```{r}
+sig_threshold <- 0.05
+wd0 <- paste(path_results, "ResultsAlpha/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(measures_noTrans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("lmer", compa, clusnb, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
+               path=paste("lmer_noTrans/", compa, "_", clusnb, "/", sep=""),
+               verbose=F)
+
+```
+
+
+#### transformation  + covariate
+2 participants (ID071, ID090) are removed of the analysis as we do not have their BMI information.
+```{r paged.print=FALSE}
+### saved in Rosner_Model_Trans_cov
+DF <- as.data.frame(colData(tse2))
+
+# transformation
+trans_analysis <- c("bc", "bc", "", "bc", "bc", "", "bc", "bc", "bc", "bc")
+names(trans_analysis) <- measures
+data.frame(trans_analysis)
+```
+
+```{r}
+DF_subs <- prepare_DATA(DF, trans_analysis)
+measures_Trans <- sapply(names(trans_analysis), function(x) if(trans_analysis[[x]] !="") paste(x, trans_analysis[[x]], sep="_") else x)
+```
+```{r}
+clusnb <- "1"
+
+#### Model full
+compar_var = "T"
+DF_work=subset(DF_subs$DF, group_info==clusnb)
+compa = "full"
+FE <- c("B", "T", "C1", "C2",  "Alter", "BMI", "Geschlecht")
+RE <- "Participant_ID"
+```
+
+
+```{r}
+sig_threshold <- 0.05
+wd0 <- paste(path_results, "ResultsAlpha/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("lmer", compa, clusnb, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
+               path=paste("lmer_Trans_cov/", compa, "_", clusnb, "/", sep=""),
+               verbose=F)
+
+```
+
+
+```{r paged.print=FALSE}
+## In lmer_Trans_cov/
+# ## Model 3-4
+# groupvars <- c("B", "P",  "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
+# DF_work=subset(DF_subs$DF_int1, group_info==clusnb)
+# res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_work, compar_var = "B",
+#                          savingName = paste("Model_Yogurt", clusnb, sep="_"), plot_res=T,
+#                          path=paste(path_results, "ResultsAlpha/Rosner_Model_Trans_cov/", sep=""))
+# 
+# DF_work=subset(DF_subs$DF_int2, group_info==clusnb)
+# res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_work, compar_var = "B",
+#                                savingName = paste("Model_YogurtOatmeal", clusnb, sep="_"), plot_res=T,
+#                                path=paste(path_results, "ResultsAlpha/Rosner_Model_Trans_cov/", sep=""))
+```
+
+
+
+#### transformation no covariates
+
+```{r}
+### saved in Rosner_Model_Trans
+# same DF and measures_Trans as defined in previous section
+```
+
+```{r}
+clusnb <- "2"
+
+#### Model full
+compar_var = "T"
+DF_work=subset(DF_subs$DF, group_info==clusnb)
+compa = "full"
+FE <- c("B", "T", "C1", "C2")
+RE <- "Participant_ID"
+
+#### Model Y
+compar_var = "B"
+DF_work=subset(DF_subs$DF_int1, group_info==clusnb)
+compa = "Y"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+#### Model YO
+compar_var = "B"
+DF_work=subset(DF_subs$DF_int2, group_info==clusnb)
+compa = "YO"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+```
+
+
+```{r}
+sig_threshold <- 0.05
+wd0 <- paste(path_results, "ResultsAlpha/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("lmer", compa, clusnb, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
+               path=paste("lmer_Trans/", compa, "_", clusnb, "/", sep=""),
+               verbose=F)
+
+# # run_uniMarker_model()
+# outcomes <- measures_Trans
+# package="lme4"
+# model=NULL
+# counts=F
+# DF=DF_work
+# var_check=NULL
+# savingName=paste("lmer", compa, clusnb, sep="_")
+# check_mod=T
+# save_mod=F
+# path=paste("lmer_Trans/", compa, "_", clusnb, "/", sep="")
+# verbose=T
+# save_final_files=T
+# trans_plot = "psd_log"
+# 
+# # check_model()
+# outcome = outcome_i
+# DF=DF_mod
+# var_check
+# print=T
+# save=F
+# path=paste(path, "Plots/", sep="")
+# verbose=F
+# resid_panel_pck="none"
+```
+
+
+
+
+#### transformation no covariates interaction B*group_info
+
+```{r}
+### saved in Rosner_Model_Trans_int
+# same DF and measures_Trans as defined in previous section
+```
+
+```{r paged.print=FALSE}
+# changing form to:
+# form <- paste(outcome, "B*group_info + P + (1|Participant_ID)", sep=" ~ ")
+# in result_mixedmod()
+
+## Model 3-4
+groupvars <- c("B", "group_info", "P", "(1|Participant_ID)")
+
+DF_work=DF_subs$DF_int1
+res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_work, compar_var = "B",
+                         savingName = paste("Model_Yogurt", clusnb, sep="_"), plot_res=T,
+                         path=paste(path_results, "ResultsAlpha/Rosner_Model_Trans_int/", sep=""))
+
+DF_work=DF_subs$DF_int2
+res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_work, compar_var = "B",
+                               savingName = paste("Model_YogurtOatmeal", clusnb, sep="_"), plot_res=T,
+                               path=paste(path_results, "ResultsAlpha/Rosner_Model_Trans_int/", sep=""))
+
+
+
+```
+
+
+## Beta diversity
+
+#### Plots
+```{r fig.height=10, fig.width=12, warning=FALSE}
+taxa <- c("Streptococcus_thermophilus", "Lactobacillus_delbrueckii")
+
+pp_list <- list()
+pp_list2 <- list()
+for(i in seq(length(taxa))){
+  
+  colData(tse2)$abundance <- getAbundanceFeature(tse2, feature_id = paste("Species:", taxa[i],sep=""), abund_values = "relabundance")
+  pp_list[[i]] <- plot_sample_measure_CO(tse2, "abundance", taxa[i],  x="Timepoint", colorInter = T, trans = "psdlog", print_table = F)   + facet_grid( Gruppe~ group_info) 
+  pp_list2[[i]] <- plot_sample_measure_CO(tse2, "abundance", taxa[i],  trans = "psdlog", colorInter = T, print_table = F)  + facet_grid( Intervention~ group_info)  
+}
+
+
+wrap_plots(c(pp_list, pp_list2), nrow=2) 
+```
+
+#### Models
+```{r}
+library(NBZIMM)
+```
+
+```{r}
+assay_t <- t(assays(tse_sub2)[["relabundance"]]) %>% as.data.frame()
+colnames(assay_t) <- gsub("Species:", "", colnames(assay_t))
+taxa <- colnames(assay_t)
+assay_t$Sample_ID <- rownames(assay_t)
+metadata <- as.data.frame(colData(tse_sub2))
+DF <- merge(metadata, assay_t, by="Sample_ID")
+DF_subs <- prepare_DATA(DF, NULL)
+```
+
+
+```{r}
+clusnb <- "3"
+
+#### Model full
+compar_var = "T"
+DF_work=subset(DF_subs$DF, group_info==clusnb)
+compa = "full"
+FE <- c("B", "T", "C1", "C2")
+RE <- "Participant_ID"
+
+#### Model Y
+compar_var = "B"
+DF_work=subset(DF_subs$DF_int1, group_info==clusnb)
+compa = "Y"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+#### Model YO
+compar_var = "B"
+DF_work=subset(DF_subs$DF_int2, group_info==clusnb)
+compa = "YO"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+```
+
+```{r}
+model <- "NBZIMM_rel_asinsqrt"
+sig_threshold <- 0.01
+```
+
+
+```{r}
+DF_work_mod=DF_work
+DF_work_mod[,taxa] <- asin(sqrt(DF_work_mod[, taxa]/100))
+```
+
+```{r}
+wd0 <- paste(path_results, "ResultsBetadiv/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(taxa, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("NBZIMM_rel_asinsqrt", compa, clusnb, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=F, save_mod=F,  
+               path=paste("NBZIMM_rel_asinsqrt/", compa, "_", clusnb, "/", sep=""),
+               verbose=F)
+```
+
+
+
+
+
+
+# Metabolomic
+
+```{r}
+load(paste(dir, "DataPreparation/Metabolomic/MetabolomeData.Rdata", sep=""))
+```
+
+```{r}
+clust_meta_sub <- clust_meta[, c("Sample_ID", "group_info")]
+DATA_wide$Sample_ID <- gsub("-", "", DATA_wide$Sample_ID)
+
+DATA_wide <- merge(DATA_wide, clust_meta_sub, by="Sample_ID")
+DATA_wide <- subset(DATA_wide, group_info!="miss")
+```
+
+
+
+```{r}
+# Same merging 
+# clust_meta_sub <- clust_meta[, c("Participant_ID", "Timepoint", "group_info")]
+# 
+# DATA_wide <- merge(DATA_wide, clust_meta_sub, by=c("Participant_ID", "Timepoint"))
+# DATA_wide <- subset(DATA_wide, group_info!="miss")
+```
+
+
+```{r}
+measures <- colnames(DATA_wide)[12:19]
+```
+
+
+
+## Plots
+
+```{r paged.print=FALSE}
+# transformation for plots
+trans <- c("sqrt", "sqrt", "sqrt", "psd_log", "sqrt", "sqrt", "sqrt", "sqrt")
+names(trans) <- measures
+data.frame(trans)
+```
+```{r  fig.height=20, fig.width=12, warning=FALSE}
+ll_plot <- list()
+for(i in seq(length(measures))){
+  ll_plot[[i]] <- plot_sample_measure_CO(DATA_wide, measures[i], "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], line_diff = T) + facet_grid(Gruppe ~ group_info) 
+}
+
+wrap_plots(ll_plot, ncol=2)  + plot_layout(guides = "collect") 
+```
+
+
+```{r}
+ggsave(paste(path_results, "ResultsMetabolomic/SCFA_byTime.png", sep=""), wrap_plots(ll_plot, nrow=2)  + plot_layout(guides = "collect") , width=25, height = 12)
+```
+
+
+```{r fig.height=20, fig.width=12, warning=FALSE}
+ll_plot <- list()
+for(i in seq(length(measures))){
+  ll_plot[[i]] <- plot_sample_measure_CO(DATA_wide, measures[i], "", x="Treatment", colorInter = T, print_table=F, trans = trans[i], line_diff = T) + facet_grid(Intervention ~ group_info) 
+}
+
+wrap_plots(ll_plot, ncol=2)  + plot_layout(guides = "collect") 
+```
+
+```{r}
+ggsave(paste(path_results, "ResultsMetabolomic/SCFA_byTreat.png", sep=""), wrap_plots(ll_plot, nrow=2)  + plot_layout(guides = "collect") , width=25, height = 12)
+```
+
+
+## Models
+
+### transformation no covariates
+
+```{r paged.print=FALSE}
+# transformation
+trans_analysis <- c("bc", "bc", "bc", "bc", "bc", "bc", "bc", "bc")
+names(trans_analysis) <- measures
+data.frame(trans_analysis)
+```
+
+
+```{r}
+DF_subs <-  prepare_DATA(DATA_wide, trans_analysis)
+measures_Trans <- sapply(names(trans_analysis), function(x) if(trans_analysis[[x]] !="") paste(x, trans_analysis[[x]], sep="_") else x)
+```
+
+
+
+```{r}
+clusnb <- "3"
+
+#### Model full
+compar_var = "T"
+DF_work=subset(DF_subs$DF, group_info==clusnb)
+compa = "full"
+FE <- c("B", "T", "C1", "C2")
+RE <- "Participant_ID"
+
+#### Model Y
+compar_var = "B"
+DF_work=subset(DF_subs$DF_int1, group_info==clusnb)
+compa = "Y"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+#### Model YO
+compar_var = "B"
+DF_work=subset(DF_subs$DF_int2, group_info==clusnb)
+compa = "YO"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+```
+
+
+```{r}
+sig_threshold <- 0.05
+wd0 <- paste(path_results, "ResultsMetabolomic/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("lmer", compa, clusnb, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
+               path=paste("lmer_Trans/", compa, "_", clusnb, "/", sep=""),
+               verbose=F)
+```
+
+
+
+
+
+# Blood markers
+
+```{r}
+load(paste(dir, "DataPreparation/BloodMarkers/BloodData_AllMarkers.Rdata", sep=""))
+```
+
+
+```{r}
+clust_meta_sub <- clust_meta[, c("Participant_ID", "Timepoint", "group_info")]
+
+data_merged <- merge(data_merged, clust_meta_sub, by=c("Participant_ID", "Timepoint"))
+data_merged <- subset(data_merged, group_info!="miss")
+```
+
+```{r}
+measures <- colnames(data_merged)[c(3:6,8,10,11)]
+```
+
+
+## Plots
+
+```{r paged.print=FALSE}
+# transformation for plots
+trans <- c("log", "log", "", "", "", "log", "log")
+names(trans) <- measures
+data.frame(trans)
+```
+
+
+```{r fig.height=18, fig.width=11, warning=FALSE}
+ll_plot <- list()
+for(i in seq(length(measures))){
+  ll_plot[[i]] <- plot_sample_measure_CO(data_merged, measures[i], "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], line_diff = T)  + facet_grid(Gruppe ~ group_info) 
+}
+
+wrap_plots(ll_plot, ncol=2)  + plot_layout(guides = "collect") 
+```
+
+```{r}
+ggsave(paste(path_results, "ResultsBlood/Blood_byTime.png", sep=""), wrap_plots(ll_plot, nrow=2)  + plot_layout(guides = "collect"), width=24, height = 12)
+```
+
+
+
+```{r fig.height=18, fig.width=11, warning=FALSE}
+ll_plot <- list()
+for(i in seq(length(measures))){
+  ll_plot[[i]] <- plot_sample_measure_CO(data_merged, measures[i], "", x="Treatment", colorInter = T, print_table=F, trans = trans[i], line_diff = T) + facet_grid(Intervention ~ group_info) 
+}
+
+wrap_plots(ll_plot, ncol=2)  + plot_layout(guides = "collect") 
+```
+
+
+```{r}
+ggsave(paste(path_results, "ResultsBlood/Blood_byTreat.png", sep=""), wrap_plots(ll_plot, nrow=2)  + plot_layout(guides = "collect"), width=24, height = 12)
+```
+
+
+
+## Models
+
+### transformation no covariates
+
+```{r paged.print=FALSE}
+DF <- data_merged
+
+# remove influential points
+id <- which(DF$Participant_ID == "ID118")
+DF$FRUC[id] <- NA
+
+id <- which(DF$Participant_ID == "ID087" & DF$Timepoint =="T2")
+DF$zonulin[id] <- NA
+
+id <- which(DF$Participant_ID == "ID067" & DF$Timepoint =="T2")
+DF$SCRP[id] <- NA
+
+id <- which(DF$Participant_ID == "ID109" & DF$Timepoint =="T3")
+DF$IL6[id] <- NA
+
+# transformation
+trans_analysis <- c("bc", "bc", "bc", "bc", "bc", "bc", "bc")
+names(trans_analysis) <- measures
+data.frame(trans_analysis)
+```
+
+
+```{r}
+DF <- dplyr::rename(DF, m_8OHdG=`8OHdG`)
+names(trans_analysis)[which(names(trans_analysis) == "8OHdG")] <- "m_8OHdG"
+DF_subs <-  prepare_DATA(DF, trans_analysis)
+measures_Trans <- sapply(names(trans_analysis), function(x) if(trans_analysis[[x]] !="") paste(x, trans_analysis[[x]], sep="_") else x)
+```
+
+
+
+```{r}
+clusnb <- "3"
+
+#### Model full
+compar_var = "T"
+DF_work=subset(DF_subs$DF, group_info==clusnb)
+compa = "full"
+FE <- c("B", "T", "C1", "C2")
+RE <- "Participant_ID"
+
+#### Model Y
+compar_var = "B"
+DF_work=subset(DF_subs$DF_int1, group_info==clusnb)
+compa = "Y"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+#### Model YO
+compar_var = "B"
+DF_work=subset(DF_subs$DF_int2, group_info==clusnb)
+compa = "YO"
+FE <- c("B", "P")
+RE <- "Participant_ID"
+
+```
+
+
+```{r}
+sig_threshold <- 0.05
+wd0 <- paste(path_results, "ResultsBlood/", sep="")
+setwd(wd0)
+
+run_uniMarker_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
+               compar_var=compar_var, var_check=NULL, 
+               savingName=paste("lmer", compa, clusnb, sep="_"), 
+               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
+               path=paste("lmer_Trans/", compa, "_", clusnb, "/", sep=""),
+               verbose=F)
+```
+

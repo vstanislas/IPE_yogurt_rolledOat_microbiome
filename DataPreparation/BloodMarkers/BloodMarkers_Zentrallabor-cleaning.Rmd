@@ -1,0 +1,91 @@
+---
+title: "Cleaning Zentrallabor Blood data"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+---
+
+
+# Loading 
+
+Metadata files created from createMetadataTable.R
+
+```{r}
+library(readxl)
+library(dplyr)
+library(tidyr)
+
+dir <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/2206_JoghurtStudy/Analysis/DataPreparation/BloodMarkers/"
+```
+
+
+# Formating
+
+```{r}
+### DATA
+data <- read_excel(paste(dir, "JH_Serum_Zentrallabor_2022-08-19.xlsx", sep=""), sheet=1)
+data <- as.data.frame(data)
+data <- data[,c("Probe", "Probe_dup", "JH-ID", "FRUC", "SCRP", "SI-H")]
+colnames(data)[c(3, 6)] <- c("Sample_ID", "SI_H")
+data$Sample_ID <- gsub("JH-", "ID", data$Sample_ID)
+data <- separate(data, Sample_ID, c("Participant_ID", "Timepoint"), remove=F)
+
+data$Timepoint <- paste("T", data$Timepoint, sep="")
+data0 <- data
+```
+
+
+```{r warning=FALSE, paged.print=FALSE}
+# Details of the samples without results
+data$FRUC_num <- as.numeric(data$FRUC)
+data$SCRP_num <- as.numeric(data$SCRP)
+data$SI_H_num <- as.numeric(data$SI_H)
+
+id_NA <- unique(c(which(is.na(data), arr.ind = T)[,"row"], 84, 129, 449, 452))
+data[id_NA, ]
+```
+Details missing values:
+  
+  * zwM: for all results of two samples: **replace to NA**
+  * nonnumerical values (>15, <0.1) for two values: **set to 15 and 0.1 respectively**
+
+```{r warning=FALSE, paged.print=FALSE}
+data <- data0
+data[3, "SCRP"] <- 15
+data[124, "SCRP"] <- 0.1
+
+data$FRUC <- as.numeric(data$FRUC)
+data$SCRP <- as.numeric(data$SCRP)
+data$SI_H <- as.numeric(data$SI_H)
+
+id_NA <- unique(which(is.na(data), arr.ind = T)[,"row"])
+data[id_NA, ]
+```
+
+
+
+```{r}
+# Separate original and duplicated samples
+duplicated_proben <- data[duplicated(data$Probe_dup),"Probe_dup"]
+data_duplicated <- subset(data, Probe_dup %in% duplicated_proben)
+data <- subset(data, Probe == paste("Probe ", Probe_dup, sep="") & Timepoint!="TNA")
+```
+
+```{r}
+#to check
+table(data$Participant_ID, data$Timepoint, useNA = "always")
+```
+
+```{r}
+#to check
+table(data_duplicated$Participant_ID, data_duplicated$Timepoint, useNA = "always")
+```
+
+# Saving
+```{r}
+save(data, file="BloodData_Zentrallabor.Rdata")
+save(data_duplicated, file="BloodData_Zentrallabor_duplicated.Rdata")
+```
+

@@ -1,0 +1,167 @@
+---
+title: "Cleaning Metabolon data"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+---
+
+
+
+# Loading and formating
+```{r include=FALSE}
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(kableExtra)
+
+dir <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/2206_JoghurtStudy/Analysis/DataPreparation/Metabolomic/Metabolon DATA/"
+source("Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/2206_JoghurtStudy/Analysis/Utils.R")
+  
+# dir <- "/Users/vstanislas/Work/IPE-Freiburg/Projects/2206_JoghurtStudy/Analysis/DataPreparation/Metabolomic/Metabolon DATA/"
+# source("/Users/vstanislas/Work/IPE-Freiburg/Projects/2206_JoghurtStudy/Analysis/Utils.R")
+
+
+cols <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", 
+          Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
+cols_Inter_treat <- cols
+```
+
+
+```{r eval=FALSE, include=FALSE}
+# tt <- read.table("C:/Users/stanisla/Downloads/share_Ext_086-Freiburg-Oat_Yogurt_study/share_Ext_086-Freiburg-Oat_Yogurt_study/MappingFile.txt", header= T)
+# tt <- read.table("/Users/vstanislas/Work/IPE-Freiburg/Projects/2206_JoghurtStudy/Analysis/Microbiome DATA/MappingFile.txt", header= T)
+# 
+# tt <- tt[, c(2:7,9,10)]
+# meta <- subset(metadata, Number==1)[, c(1:3, 5:9)]
+# rownames(meta) <- NULL
+```
+
+```{r}
+### METADATA
+metadata <- read_excel(paste(dir, "Metadata_metabolome.xlsx", sep=""), sheet=1)
+metadata <- as.data.frame(metadata)
+metadata$Treatment <- case_when(metadata$Timepoint %in% c("T1", "T3") ~ "Before",
+                                metadata$Timepoint %in% c("T2", "T4") ~ "After",
+                                TRUE ~ NA_character_)
+metadata$Intervention <- case_when(metadata$Timepoint %in% c("T1", "T2") & metadata$Gruppe == "A" ~ "Yogurt",
+                                   metadata$Timepoint %in% c("T3", "T4") & metadata$Gruppe == "A" ~ "YogurtOatmeal",
+                                   metadata$Timepoint %in% c("T1", "T2") & metadata$Gruppe == "B" ~ "YogurtOatmeal",
+                                   metadata$Timepoint %in% c("T3", "T4") & metadata$Gruppe == "B" ~ "Yogurt",
+                                TRUE ~ NA_character_)
+
+metadata$Inter_treat <- paste(metadata$Treatment, metadata$Intervention, sep=".")
+metadata$Inter_treat <- factor(metadata$Inter_treat, levels = c("Before.Yogurt", "After.Yogurt", "Before.YogurtOatmeal", "After.YogurtOatmeal"), ordered=T)
+metadata$Treatment <- factor(metadata$Treatment, levels = c("Before", "After"), ordered=T)
+metadata$Timepoint <- factor(metadata$Timepoint, levels = c("T1", "T2", "T3", "T4"), ordered=T)
+metadata$Gruppe <- as.factor(metadata$Gruppe)
+metadata$Participant_ID <- as.factor(metadata$Participant_ID)
+metadata$Number <- as.factor(metadata$Number)
+metadata$Geschlecht <- as.factor(metadata$Geschlecht)
+metadata$Intervention <- as.factor(metadata$Intervention)
+```
+
+
+```{r}
+### DATA
+data <- read_excel(paste(dir, "FREI-0301-21TASA CDT.xlsx", sep=""), sheet=1)
+data <- as.data.frame(data)
+
+# Remove unecessary variables
+# table(data$`Client Matrix`) # Only Feces
+# table(data$Unit) # Only µg/g
+data <- data[, c(2, 4:5, 7:9)]
+colnames(data)[6] <- "LOQ_Type"
+data$Analyte <- as.factor(data$Analyte)
+data$LOQ_Type <- as.factor(data$LOQ_Type)
+
+# Recode Sample ID
+data$Sample_ID <- data$`Client Sample ID`
+add0 <- function(x){
+  if(x %in% 1:9) {
+    paste("JH-00", x, sep="")
+  } else if(x %in% 10:99) {
+    paste("JH-0", x, sep="")
+    } else paste("JH-", x, sep="")
+} 
+data$Sample_ID <- sapply(data$Sample_ID, function(x) add0(x))
+```
+
+
+```{r warning=FALSE, paged.print=FALSE}
+# Details of the samples without results
+data$Results_num <- as.numeric(data$Results)
+id_NA <- unique(data[is.na(data$Results_num), "Sample_ID"])
+data[is.na(data$Results_num), ]
+```
+10 results are missing values (mostly from sample JH-110) with:
+
+  * N/Q: Not quantifiable
+  * QNS: Quantity not sufficient
+
+```{r}
+table(data$Analyte)
+```
+8 types of short chain fatty acids
+
+
+```{r paged.print=FALSE}
+# Details of the samples with concentration above the calibration rage
+subset(data, LOQ_Type=="ALOQ")[,1:7]
+```
+26 samples are ALOQ
+
+```{r paged.print=FALSE}
+# Details of the samples with concentration below the calibration rage
+subset(data, LOQ_Type=="BLOQ")[,1:7]
+```
+31 samples are BLOQ
+
+```{r}
+data <- data[, c("Sample_ID", "Analyte", "Results_num", "LLOQ", "ULOQ", "LOQ_Type")]
+colnames(data)[3] <- "Results"
+```
+
+
+
+```{r}
+# Merge data and metadata
+data_merged <- merge(data, metadata, by="Sample_ID", all=TRUE)
+
+DATA <- subset(data_merged, Number==1)
+DATA_repli <- subset(data_merged, Number==2)
+
+DATA_wide <- reshape2::dcast(DATA, Sample_ID + Participant_ID + Timepoint + Gruppe + Geschlecht + Alter + BMI + BMI_var + Treatment + Intervention + Inter_treat ~ Analyte, value.var = "Results")
+colnames(DATA_wide)[12:19] <- gsub(" ", "_", colnames(DATA_wide)[12:19] ) 
+colnames(DATA_wide)[12] <- "Methylbutyric_acid2"
+
+## for now only replicates are in DATA_repli
+## Need to add the corresponding original samples
+DATA_repli_wide <- reshape2::dcast(DATA_repli, Sample_ID + Participant_ID + Timepoint + Gruppe + Geschlecht + Alter + BMI + BMI_var + Treatment + Intervention + Inter_treat ~ Analyte, value.var = "Results")
+colnames(DATA_repli_wide)[12:19] <- gsub(" ", "_", colnames(DATA_repli_wide)[12:19] ) 
+colnames(DATA_repli_wide)[12] <- "Methylbutyric_acid2"
+DATA_repli_wide <- droplevels(DATA_repli_wide)
+```
+
+```{r}
+kbl(head(DATA_wide, 20))%>%
+  kable_paper("striped", full_width = F, position = "left") 
+```
+
+```{r}
+table(DATA_wide$Participant_ID, DATA_wide$Timepoint, useNA = "always")
+```
+
+```{r}
+table(DATA_repli_wide$Participant_ID, DATA_repli_wide$Timepoint, useNA = "always")
+```
+
+
+# Saving 
+
+```{r}
+save(DATA, DATA_wide, file="MetabolomeData.Rdata")
+save(DATA_repli, file="MetabolomeData_duplicated.Rdata") # not ready yet
+```
+

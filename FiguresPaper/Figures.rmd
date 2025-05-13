@@ -1,0 +1,446 @@
+---
+title: "Figures paper"
+output: 
+  html_notebook:
+    number_sections: no
+    toc: yes
+    toc_depth: 4
+---
+
+
+<style>
+.main-container { width: 1200px; max-width:2800px;}
+</style>
+
+
+
+
+
+
+```{r message=FALSE}
+library(phyloseq)
+library(ggplot2)
+library(mia)
+library(patchwork)
+
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+
+path_analysis <- paste(dir, "DataAnalysis/Results_Main_Analysis/ResultsTaxonomy/", sep="")
+
+source(file = paste(dir, "R functions/Utils.R", sep=""))
+source(file = paste(dir, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir, "R functions/Utils_crossOver.R", sep=""))
+```
+
+
+```{r message=FALSE}
+load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
+```
+
+
+```{r}
+cols <- c("#017b74", "#73ffec", "#ad0053", "#ffcacf", "#ff8d3f", "#ffdf91", "#00c14e","#abffc2", "#6042ed", "#90b9ff", "#700054","#ff8bfc", "#3d8b00", "#bcff7c", "#8b3700", "#ffba91", "#ff4e2a", "#000e26", "#71a800", "#577eff", "#02d0d3", "#d00039", "#dba500", "#ac72ff", "#e0c9ff", "#002e66", "#006dbd", "#02a0c8", "#db37ec",  "#e5ffd5", "#004a20", "#637500", "#ec00bf", "#434d00","#ff77a8", "#002f17", "#f1ff4b", "#533500", "#7ea2ff", "#000d4e", "#ff41a0", "#003636", "#271800", "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#A65628", "#F781BF", "#FFFF00FF", "#999999")
+
+cols_Inter_treat <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
+
+cols_Inter_treat2 <- c(`After Yogurt`="#7570B3", `After Yogurt Oatmeal`="#D95F02", `Before Yogurt`="#AAA8C5", `Before Yogurt Oatmeal`="#DBB394")
+
+cols_Participant_Id <- rep(cols, 3)
+names(cols_Participant_Id) <- unique(colData(tse)[, "Participant_ID"])
+```
+
+
+
+# Figure 1 C: Study design and abundance of yogurt species
+```{r fig.height=3.5, fig.width=14}
+taxa <- c("Streptococcus_thermophilus", "Lactobacillus_delbrueckii")
+
+pp_list <- list()
+pp_list2 <- list()
+for(i in seq(length(taxa))){
+  
+  colData(tse)$abundance <- assay(tse, "relabundance")[paste("Species:", taxa[i],sep=""),]
+  pp <- plot_sample_measure_CO(tse, "abundance", taxa[i],  x="Timepoint", colorInter = T, trans = "psd_log", print_table = F)  
+  pp <- pp + ylab("") + ggtitle(gsub("_", " ", taxa[i]))+ 
+    theme(text=element_text(size=17))
+  
+  pp_list[[i]] <- pp
+}
+
+
+wrap_plots(pp_list, nrow=1) 
+```
+
+```{r}
+ggsave("Figure1_species.png", wrap_plots(pp_list, nrow=1), height=3.5, width=14)
+```
+
+
+# Figure 2 A-B: effects of intervention, UMAP plots 
+
+```{r}
+cols_Inter_treat2 <- c("#AAA8C5", "#7570B3", "#DBB394", "#D95F02")
+```
+
+```{r message=FALSE, warning=FALSE}
+pp <- plot_ordination(tse, "UMAP", sd_threshold=1.4, rank_dominance="Family")
+PartHsd_UMAP <- pp$Participants_high_sd
+p3 <- plot_ordination(tse, "UMAP", sd_threshold=1.4, rank_dominance="Genus")$p_topdom #comment stat_ellipse() in plot_ordination()
+p4 <- pp$p_inter_treat 
+
+p3 <- p3 + ggtitle("") + xlab("UMAP 1")+ ylab("UMAP 2") + xlim(-5,5) + ylim(-3, 3.2) + 
+  labs(color = "Dominant Genus")+ 
+   theme(text=element_text(size=15)) # Most dominant genus by sample
+p4 <- p4 + ggtitle("") + xlab("UMAP 1")+ ylab("UMAP 2") + xlim(-5,5) + ylim(-3, 3.2) + 
+  labs(color = "Intervention") + 
+  scale_color_manual(name = "Intervention", values=cols_Inter_treat2, labels = c("Before Yogurt", "After Yogurt", "Before Yogurt Rolled Oats", "After Yogurt Rolled Oats"))+ 
+   theme(text=element_text(size=15))
+```
+
+```{r fig.height=8, fig.width=15, message=FALSE, paged.print=FALSE}
+wrap_plots(p4, p3) + plot_layout(guides = "collect") + plot_annotation(tag_levels = "A")
+```
+
+
+```{r}
+ggsave("Figure2_UMAP.png",
+       wrap_plots(p4, p3) + plot_layout(guides = "collect")+ plot_annotation(tag_levels = "A"), 
+       width=20, height=8)
+```
+
+
+
+
+# Table 1: Groups description
+```{r}
+library(gtsummary)
+```
+
+```{r}
+load(file=paste(dir, "DataPreparation/Metadata/Info_participant.Rdata", sep=""))
+```
+
+```{r}
+PartiInfo <- dplyr::rename(PartiInfo, Gender=Geschlecht)
+PartiInfo <- dplyr::rename(PartiInfo, Age=Alter)
+```
+
+
+```{r}
+var <- c("Gruppe", "Gender", "Age", "BMI")
+tbl_summary(PartiInfo[, var], by=Gruppe)%>% 
+  bold_labels()%>% 
+  gtsummary::as_gt()%>%
+  gt::tab_header(title = gt::md("Demographic characteristics in each group at baseline"))
+```
+
+# Sup Table 1: PERMANOVA at baseline T1
+
+```{r}
+colData(tse)$Period <-  case_when(colData(tse)$Timepoint %in% c("T1", "T2") ~ 0,
+                     colData(tse)$Timepoint %in% c("T3", "T4") ~ 1,
+                     TRUE ~ NA_real_)
+colData(tse)$Period <- factor(colData(tse)$Period, levels = c("0", "1"), labels=c("Period1", "Period2"))
+table(colData(tse)$Period, colData(tse)$Timepoint)
+```
+
+
+```{r}
+tse_baseline <- tse[, tse$Timepoint=="T1"]
+
+tse_genus <- agglomerateByRank(tse_baseline, rank="Genus")
+
+colData(tse_baseline)$Prevotella_genus <- assay(tse_genus, "relabundance")["Prevotella",]
+colData(tse_baseline)$Bacteroides_genus <- assay(tse_genus, "relabundance")["Bacteroides",]
+colData(tse_baseline)$Ruminococcus_genus <- assay(tse_genus, "relabundance")["Ruminococcus",]
+```
+
+```{r paged.print=FALSE}
+library(vegan)
+set.seed(1576)
+permanova_euc <- adonis2(t(assay(tse_baseline, "relabundance")) ~  Gruppe+ BMI + Alter + Geschlecht + Observed + Prevotella_genus + Bacteroides_genus + Ruminococcus_genus,
+                         by = "margin", # each term analyzed individually
+                         data = colData(tse_baseline),
+                         method = "euclidean",
+                         permutations = 9999, 
+                         na.action=na.omit)
+permanova_euc_df <- as.data.frame(permanova_euc)
+
+
+permanova_bray <- adonis2(t(assay(tse_baseline, "relabundance")) ~  Gruppe+ BMI + Alter + Geschlecht + Observed + Prevotella_genus + Bacteroides_genus + Ruminococcus_genus ,
+                          by = "margin", # each term analyzed individually
+                          data = colData(tse_baseline),
+                          method = "bray",
+                          permutations = 9999, 
+                          na.action=na.omit)
+permanova_bray_df <- as.data.frame(permanova_bray)
+
+
+df <- data.frame(permanova_euc_df[,"Pr(>F)", drop=F],
+                 permanova_bray_df[,"Pr(>F)", drop=F])
+colnames(df) <- c("euclidean", "bray")
+df
+```  
+
+```
+                   euclidean   bray
+Gruppe                0.1811 0.2791
+BMI                   0.8870 0.5102
+Alter                 0.3989 0.1634
+Geschlecht            0.0737 0.1034
+Observed              0.0001 0.0001
+Prevotella_genus      0.0001 0.0001
+Bacteroides_genus     0.0001 0.0001
+Ruminococcus_genus    0.0002 0.0001
+Residual                  NA     NA
+Total                     NA     NA
+
+permanova_bray_df
+                    Df SumOfSqs      R2      F Pr(>F)    
+Gruppe               1   0.2202 0.00888 1.1024 0.2791    
+BMI                  1   0.1925 0.00776 0.9638 0.5102    
+Alter                1   0.2422 0.00976 1.2124 0.1634    
+Geschlecht           1   0.2634 0.01062 1.3187 0.1034    
+Observed             1   1.2981 0.05233 6.4989 0.0001 ***
+Prevotella_genus     1   1.0014 0.04037 5.0136 0.0001 ***
+Bacteroides_genus    1   0.7478 0.03014 3.7439 0.0001 ***
+Ruminococcus_genus   1   0.5389 0.02172 2.6978 0.0001 ***
+Residual            97  19.3750 0.78101                  
+Total              105  24.8076 1.00000                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+```
+
+
+
+```{r}
+write.xlsx2( round(as.data.frame(permanova_bray), 4), "resultPERMANOVA_T1.xlsx")
+```
+
+
+
+
+# Sup Figure 2: additional UMAP plots
+
+```{r message=FALSE, warning=FALSE}
+pp <- plot_ordination(tse, "UMAP", sd_threshold=1.4, rank_dominance="Family")
+PartHsd_UMAP <- pp$Participants_high_sd
+p1 <- pp$p_gruppe
+p5 <- pp$p_part 
+
+p1 <- p1 + ggtitle("") + xlab("UMAP 1")+ ylab("UMAP 2") + xlim(-5,5) + ylim(-3, 3.2) + 
+  labs(color = "Group")+ 
+   theme(text=element_text(size=15)) 
+
+p5 <- p5 + ggtitle("") + xlab("UMAP 1")+ ylab("UMAP 2") + xlim(-5,5) + ylim(-3, 3.2) + 
+   theme(text=element_text(size=15))+ theme(legend.position = "none") 
+```
+
+```{r}
+df <- as.data.frame(cbind(reducedDim(tse, "UMAP"),colData(tse)))
+p_group <-  ggplot(df, aes(x=V1, y=V2, shape = Timepoint, color=Gruppe)) + 
+    geom_point(size=2, alpha=0.7, stroke = 2 ) +  
+    scale_shape_manual(values = c(1, 16, 2, 17, 3))+ 
+    scale_color_manual(values=c("#ad0053", "#02a0c8"))+ 
+    stat_ellipse(aes(shape=NULL))+
+    theme_classic()+ 
+  xlab("UMAP 1")+ ylab("UMAP 2") + xlim(-5,5.1) + ylim(-3, 3.2) + 
+  labs(color = "Group")+ 
+   theme(text=element_text(size=17)) + guides(shape="none")
+
+p_sex <-  ggplot(df, aes(x=V1, y=V2, shape = Timepoint, color=Geschlecht)) + 
+    geom_point(size=2, alpha=0.7, stroke = 2 ) +  
+    scale_shape_manual(values = c(1, 16, 2, 17, 3))+ 
+    scale_color_manual(values=c("#017b74", "#ff8d3f"))+ 
+    stat_ellipse(aes(shape=NULL))+
+    theme_classic()+ 
+  xlab("UMAP 1")+ ylab("UMAP 2") + xlim(-5,5.1) + ylim(-3, 3.2) + 
+  labs(color = "Gender")+ 
+   theme(text=element_text(size=17))+ guides(shape="none")
+
+p_age <-  ggplot(df, aes(x=V1, y=V2, shape = Timepoint, color=Alter)) + 
+    geom_point(size=2, alpha=0.7, stroke = 2 ) +  
+    scale_shape_manual(values = c(1, 16, 2, 17, 3))+ 
+    scale_color_gradientn(colours = mycolors(20))+
+    theme_classic()+ 
+  xlab("UMAP 1")+ ylab("UMAP 2") + xlim(-5,5.1) + ylim(-3, 3.2) + 
+  labs(color = "Age")+ 
+   theme(text=element_text(size=17))+ guides(shape="none")
+
+p_bmi <-  ggplot(df, aes(x=V1, y=V2, shape = Timepoint, color=BMI)) + 
+    geom_point(size=2, alpha=0.7, stroke = 2 ) +  
+    scale_shape_manual(values = c(1, 16, 2, 17, 3))+ 
+    scale_color_gradientn(colours = mycolors(20))+
+    theme_classic()+ 
+  xlab("UMAP 1")+ ylab("UMAP 2") + xlim(-5,5.1) + ylim(-3, 3.2) + 
+  labs(color = "BMI")+ 
+   theme(text=element_text(size=17))+ guides(shape="none")
+
+p_richness <-  ggplot(df, aes(x=V1, y=V2, shape = Timepoint, color=Observed)) + 
+    geom_point(size=2, alpha=0.7, stroke = 2 ) +  
+    scale_shape_manual(values = c(1, 16, 2, 17, 3))+ 
+    scale_color_gradientn(colours = mycolors(20))+
+    theme_classic()+ 
+  xlab("UMAP 1")+ ylab("UMAP 2") + xlim(-5,5.1) + ylim(-3, 3.2) + 
+  labs(color = "Observed \nrichness")+ 
+   theme(text=element_text(size=17))+ guides(shape="none")
+```
+
+```{r fig.height=16, fig.width=20, message=FALSE, paged.print=FALSE}
+wrap_plots(p_group, p_sex, p_age, p_bmi, p_richness, p5)
+```
+
+
+
+```{r}
+ggsave("Sup_Figure2_UMAP.png",
+       wrap_plots(p_group, p_sex, p_age, p_bmi, p_richness, p5), 
+       width=25, height=16)
+```
+
+
+
+
+# Sup Figure 3: Relative abundance of cluster specific species
+
+
+
+```{r message=FALSE}
+genus_multi <- c("Prevotella", "Bacteroides", "Ruminococcus", "Bifidobacterium", "Phocaeicola", "Roseburia", "Candidatus_Cibiobacter", "Lachnospiraceae_unclassified")
+
+p_list <- list()
+for(i in seq(length(genus_multi))){
+genus <- genus_multi[i]
+p_list[[i]] <- plot_ordination(tse, "UMAP", genus=genus)$p_1spec + 
+  ggtitle(gsub("_", " ", genus), NULL) + xlab("UMAP 1")+ ylab("UMAP 2") + 
+  theme(text=element_text(size=17)) + guides(shape="none")+ 
+  labs(color = "relative \nabundance")
+}
+```
+
+
+```{r fig.height=18, fig.width=23, message=FALSE, paged.print=FALSE}
+wrap_plots(p_list, ncol=3)
+```
+
+
+```{r}
+ggsave("Sup_Figure3.png",
+       wrap_plots(p_list, ncol=3), 
+       width=23, height=18)
+```
+
+
+
+
+
+# Sup Figure 5: Change in alpha diversity
+
+
+
+```{r}
+measures <- c("dbp", "Divergence_to_median", "Log_modulo_skewness", "Observed", "Pielou", "Shannon")
+subtitle <- c("Measure of Dominance", "Measure of divergence", "Measure of rarity", "Measure of richness", "Measure of Evenness", "Measure of diversity")
+trans <- c("log", rep("", 5))
+
+pp_list <- list()
+for(i in seq(length(measures))){
+  pp_list[[i]] <- plot_sample_measure_CO(tse, measures[i], subtitle[i], colorInter=T, trans=trans[i], print_table=F) + ggtitle(gsub("_", " ", measures[i])) + ylab("") + 
+   theme(text=element_text(size=14))
+}
+```
+
+```{r fig.height=8, fig.width=16}
+wrap_plots(pp_list, nrow=2) 
+```
+
+
+```{r}
+ggsave("Sup_Figure5.png", wrap_plots(pp_list, nrow=2), width=16, height = 8)
+```
+
+
+
+
+  
+# Sup Figure 6: Change in SCFA
+
+```{r}
+load(file=paste(dir, "DataPreparation/Metabolomic/MetabolomeData.Rdata", sep=""))
+```
+
+
+```{r}
+measures <- c("Acetic_acid", "Butyric_acid", "Hexanoic_acid", "Isobutyric_acid", "Isovaleric_acid", "Methylbutyric_acid2", "Propionic_acid", "Valeric_acid")
+measures_name <- c("Acetic acid", "Butyric acid", "Hexanoic acid", "Isobutyric acid", "Isovaleric acid", "Methylbutyric acid", "Propionic acid", "Valeric acid") 
+
+trans <- c("sqrt", "sqrt", "psd_log", "sqrt", "sqrt", "sqrt", "sqrt", "sqrt")
+names(trans) <- measures
+
+```
+
+
+```{r}
+ll_plot <- list()
+for(i in seq(length(measures))){
+  ll_plot[[i]] <- plot_sample_measure_CO(DATA_wide, measures[i], "", x="Treatment", colorInter = T, print_table=F, trans = trans[i]) + ggtitle(measures_name[i], subtitle = NULL)+ ylab("")+
+   theme(text=element_text(size=14))
+}
+
+```
+
+```{r fig.height=12, fig.width=16, warning=F}
+wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") 
+```
+
+```{r}
+ggsave("Sup_Figure6.png", wrap_plots(ll_plot, nrow=2), width=16, height = 8)
+```
+
+  
+# Sup Figure 7: Change in Blood markers
+
+
+```{r}
+load(paste(dir, "DataPreparation/BloodMarkers/BloodData_AllMarkers.Rdata", sep=""))
+```
+
+
+```{r}
+measures <- c("SCRP", "IL6", "TNFR2", "FRUC", "RAGE", "8OHdG", "zonulin") 
+measures_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "sRAGE", "8-OHdG", "Zonulin") 
+
+trans <- c("log", "log", "log", "log", "", "", "")
+names(trans) <- measures
+```
+
+```{r}
+ll_plot <- list()
+for(i in seq(length(measures))){
+  ll_plot[[i]] <- plot_sample_measure_CO(data_merged, measures[i], "", x="Treatment", colorInter = T, print_table=F, trans = trans[i]) + ggtitle(measures_name[i], subtitle = NULL)+ ylab("")+
+   theme(text=element_text(size=14))
+}
+
+```
+
+```{r fig.height=12, fig.width=16, warning=F}
+wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") 
+```
+
+
+```{r}
+ggsave("Sup_Figure7.png", wrap_plots(ll_plot, nrow=3), width=16, height = 12)
+```
+
+
+
+
+
+
+
+
+
+
+
+

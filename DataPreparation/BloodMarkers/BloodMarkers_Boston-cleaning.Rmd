@@ -1,0 +1,173 @@
+---
+title: "Cleaning Boston Blood data"
+output: 
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+---
+
+
+# Loading 
+
+Metadata files created from createMetadataTable.R
+
+```{r}
+library(readxl)
+library(dplyr)
+library(tidyr)
+
+dir <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/2206_JoghurtStudy/Analysis/DataPreparation/BloodMarkers/"
+```
+
+
+# Merge the two datasets with metadata
+
+
+```{r}
+### METADATA
+metadata_P <- read_excel(paste(dir, "Metadata_Boston_P.xlsx", sep=""), sheet=1)
+metadata_S <- read_excel(paste(dir, "Metadata_Boston_S.xlsx", sep=""), sheet=1)
+```
+
+
+```{r}
+### DATA
+data8 <- read_excel(paste(dir, "22-026 Michels 8 serum.xlsx", sep=""), sheet="serum results")
+data8 <- as.data.frame(data8)
+data8 <- data8[, c(2:3)] # no comments
+colnames(data8) <- c("Boston_S_ID", "zonulin")
+
+data9 <- read_excel(paste(dir, "22-027 Michels 9 plasma.xlsx", sep=""), sheet="results")
+data9 <- as.data.frame(data9)
+data9 <- data9[, c(2:7)] # with comments
+colnames(data9) <- c("Boston_P_ID", "TNFR2", "IL6", "RAGE", "8OHdG", "Comments")
+
+
+# Merge data and metadata
+data_merged_S <- merge(metadata_S, data8, by="Boston_S_ID", all=TRUE)
+data_merged_P <- merge(metadata_P, data9, by="Boston_P_ID", all=TRUE)
+
+data_merged_S <- arrange(data_merged_S, ID_num)
+data_merged_P <- arrange(data_merged_P, ID_num)
+```
+
+
+# Separate original and duplicated samples
+```{r}
+# Separate original and duplicated samples
+data_S <- subset(data_merged_S, rep=="0")
+data_P <- subset(data_merged_P, rep=="0")
+data_S$rep <- NULL
+data_P$rep <- NULL
+
+data_dup_S <- subset(data_merged_S, rep=="1")
+data_dup_P <- subset(data_merged_P, rep=="1")
+
+data_dup_S <- merge(data_S[,-2], data_dup_S[,-2], by=c("Participant_ID", "Timepoint"))
+data_dup_P <- merge(data_P[,-2], data_dup_P[,-2], by=c("Participant_ID", "Timepoint"))
+```
+
+# Merge Plasma and Serum tables
+```{r paged.print=FALSE}
+# Except for the replicates (441:462), Boston_ID should correspond to the same samples for both serum and plasma
+which(data_P[,2] != data_S[,2]) #0 : same ID_num
+which(data_P[,3] != data_S[,3]) # 82 423: 2 differents Participant_ID 
+which(data_P[,4] != data_S[,4]) # 82 423: 2 differents Timepoint 
+
+data_P[c(82, 423),1:5]
+#     Boston_P_ID ID_num Participant_ID Timepoint    TNFR2
+# 82      P-JH-82     82          ID021        T2 1930.270    
+# 423    P-JH-423    423                      TNA 1811.190
+data_S[c(82, 423),1:5]
+#     Boston_S_ID ID_num Participant_ID Timepoint            zonulin
+# 82      S-JH-82     82                      TNA 23.533999999999999
+# 423    S-JH-423    423          ID114        T3 30.076000000000001   
+
+
+data_P[c(126, 423),1:5]
+#     Boston_P_ID ID_num Participant_ID Timepoint    TNFR2
+# 126    P-JH-126    126                      TNA 1831.436
+# 423    P-JH-423    423                      TNA 1811.190
+data_S[c(126, 82),1:5]
+#     Boston_S_ID ID_num Participant_ID Timepoint            zonulin
+# 126    S-JH-126    126                      TNA             24.273
+# 82      S-JH-82     82                      TNA 23.533999999999999
+
+################################################
+# REMOVE UNCERTAIN SAMPLES + 2 samples #
+################################################
+# data_P <- data_P[-c(82, 423, 126),]
+# data_S <- data_S[-c(82, 423, 126),]
+# all.equal(data_P[,2:4], data_S[,2:4])
+
+############################
+# REMOVE 2 samples #
+############################
+data_P <- data_P[-c(423, 126),]
+data_S <- data_S[-c(82, 126),]
+all.equal(subset(data_P, Boston_P_ID!="P-JH-82")[, 2:4], subset(data_S, Boston_S_ID!="S-JH-423")[, 2:4])
+```
+
+
+```{r}
+data <- merge(data_P[, -c(1,2)], data_S[, -c(1,2)], by=c("Participant_ID", "Timepoint"), all=TRUE)
+```
+
+##  Check for incoherent values
+```{r}
+data$zonulin_num <- as.numeric(data$zonulin)
+data$IL6_num <- as.numeric(data$IL6)
+```
+
+
+```{r paged.print=FALSE}
+id_na <- which(rowSums(is.na(data[,c(3:6,8:10)]))>0)
+data[id_na,]
+```
+Details missing values:
+  
+  * QNS values for ID063-2 for zonulin
+  * nonnumerical values for Probe ID109-3 (>10) for one value: set to 10
+
+
+```{r paged.print=FALSE}
+data[233, "zonulin"] <- NA
+data[406, "IL6"] <- 10
+
+data$zonulin <- as.numeric(data$zonulin)
+data$IL6 <- as.numeric(data$IL6)
+data$zonulin_num <- NULL
+data$IL6_num <- NULL
+
+data[id_na,]
+```
+
+```{r}
+DATA_Boston <- data
+```
+
+
+
+```{r}
+#to check
+table(DATA_Boston$Participant_ID, DATA_Boston$Timepoint, useNA = "always")
+## 1 missing timepoint corresponding to ID033 that we removed earlier
+```
+
+```{r}
+#to check
+table(data_dup_S$Participant_ID, data_dup_S$Timepoint, useNA = "always")
+```
+```{r}
+#to check
+table(data_dup_P$Participant_ID, data_dup_P$Timepoint, useNA = "always")
+```
+
+
+# Saving
+```{r}
+save(DATA_Boston, file="BloodData_Boston.Rdata")
+save(data_dup_P, data_dup_S, file="BloodData_Boston_duplicated.Rdata")
+```
+
