@@ -23,23 +23,25 @@ library(readxl)
 
 
 ```{r message=FALSE}
-dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/Public_repository/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
 
+source(file = paste(dir, "R functions/Utils.R", sep=""))
+source(file = paste(dir, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir, "R functions/Utils_crossOver.R", sep=""))
 
-source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+cols_Inter_treat <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
+col_fun_div = colorRamp2(c(-20, 20), hcl_palette = "Blue-Red 3") 
+```
 
-path_analysis <- paste(dir, "DataAnalysis/Results_Complete_Analysis/", sep="")
-setwd(path_analysis)
-path_analysis_Taxa <- paste(path_analysis, "ResultsTaxonomy/On_Relabundance_AllSamples/", sep="")
-path_analysis_Genus <- paste(path_analysis, "ResultsTaxonomy/On_Relabundance_AllSamples_Genus/", sep="")
+```{r}
+path_analysis <- paste(dir, "DataAnalysis/Results_Main_Analysis/", sep="")
+
+path_analysis_Taxa <- paste(path_analysis, "ResultsTaxonomy/", sep="")
 path_analysis_Pathway <- paste(path_analysis, "ResultsFunctional/On_pathways_AllSamples/", sep="")
 path_analysis_GO <- paste(path_analysis, "ResultsFunctional/On_GO/", sep="")
 path_analysis_KEGG <- paste(path_analysis, "ResultsFunctional/On_KEGG/", sep="")
-
-cols_Inter_treat <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
 ```
+
 
 ```{r}
 # For last section and to edit pathways, KEGGs and GO ids in heatmap 
@@ -64,191 +66,84 @@ col_to_keep_est <- c(paste(dif_full, ".est", sep=""), paste(dif_int1, ".est", se
 ```
 
 
-```{r}
-source(file = paste(dir, "Utils.R", sep=""))
+# Figure 2 C
 
-col_fun_div = colorRamp2(c(-20, 20), hcl_palette = "Blue-Red 3") 
-```
-
-```{r}
-# trans <- "_Trans_cov"
-# trans_beta <- "_cov"
-
-trans <- "_Trans"
-trans_beta <- ""
-```
-
-```{r}
-#prev <- ""
-prev <- "_prev0.2"
-```
-
-
-# Single heatmap
 ## Alpha diversity
 ```{r}
 change_feature_name <- c("dbp", "Divergence to median", "Log modulo skewness", "Observed", "Pielou", "Shannon") 
 names(change_feature_name) <- c("dbp_bc", "Divergence_to_median_bc", "Log_modulo_skewness_bc", "Observed_bc", "Pielou_bc", "Shannon_bc")
 ```
 
-
 ```{r paged.print=FALSE}
 model <- "lmer"
-ht_alpha <- print_Rosner_model(paste(path_analysis_Taxa, "ResultsAlpha/", sep=""), model, 1, 1, inter1, inter2, additional_name2=trans, name="-log(qval)*sign(est)", print=F, order=T, option1=F, dif_full=dif_full, change_feature_name=change_feature_name, toKeep=change_feature_name)
-
-draw(ht_alpha, padding = unit(c(2, 25, 2, 2), "mm")) 
-
+ht_alpha <- print_Rosner_model(paste(path_analysis_Taxa, "ResultsAlpha/", sep=""), model, 1, 1, inter1, inter2,   name="-log(qval)*sign(est)", print=F, order=T, dif_full=dif_full, change_feature_name=change_feature_name, toKeep=change_feature_name)
 ```
 
 
 
 ## Blood markers
 
-
-
 ```{r}
 change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "sRAGE", "8-OHdG", "Zonulin") 
 names(change_feature_name) <- c("SCRP_bc", "IL6_bc", "TNFR2_bc", "FRUC_bc", "RAGE_bc", "m_8OHdG_bc", "zonulin_bc") 
 ```
 
-
-
 ```{r paged.print=FALSE}
 model <- "lmer"
-ht_BM <- print_Rosner_model(paste(path_analysis, "ResultsBlood/", sep=""), model, 1, 1, inter1, inter2, additional_name2=trans, name="-log(qval)*sign(est)", print=F, order=F, option1=F, dif_full=dif_full, custom_order=names(change_feature_name), change_feature_name=change_feature_name, toKeep=change_feature_name)
-
-draw(ht_BM, padding = unit(c(2, 25, 2, 2), "mm")) 
+ht_BM <- print_Rosner_model(paste(path_analysis, "ResultsBlood/", sep=""), model, 1, 1, inter1, inter2, name="-log(qval)*sign(est)", print=F, order=F, dif_full=dif_full, custom_order=names(change_feature_name), change_feature_name=change_feature_name, toKeep=change_feature_name)
 ```
 
-## Metabolites
 
+## Metabolites
 
 ```{r}
 change_feature_name <- c("Acetic acid", "Butyric acid", "Hexanoic acid", "Isobutyric acid", "Isovaleric acid", "Methylbutyric acid", "Propionic acid", "Valeric acid") 
 names(change_feature_name) <- c("Acetic_acid_bc", "Butyric_acid_bc", "Hexanoic_acid_bc", "Isobutyric_acid_bc", "Isovaleric_acid_bc", "Methylbutyric_acid2_bc", "Propionic_acid_bc", "Valeric_acid_bc") 
 ```
 
-
 ```{r}
 model <- "lmer"
-ht_SCFA <- print_Rosner_model(paste(path_analysis, "ResultsMetabolomic/", sep=""), model, 1, 1, inter1, inter2, additional_name2=trans, name="-log(qval)*sign(est)", print=F, order=T, option1=F, dif_full=dif_full, change_feature_name=change_feature_name)
-
-draw(ht_SCFA, padding = unit(c(2, 25, 2, 2), "mm")) 
+ht_SCFA <- print_Rosner_model(paste(path_analysis, "ResultsMetabolomic/", sep=""), model, 1, 1, inter1, inter2, name="-log(qval)*sign(est)", print=F, order=T, dif_full=dif_full, change_feature_name=change_feature_name)
 ```
 
-## Beta diversity
 
-### qval<0.4 filtering
+```{r}
+ht_list = ht_alpha %v% ht_BM %v% ht_SCFA
+draw(ht_list)
+```
+
+
+```{r}
+ggsave("Figure2_Heatmap_alpha.png", grid.grabExpr(draw(ht_list), wrap = TRUE), height=4, width=6)
+```
+
+# Figure 2 D
 
 ```{r paged.print=FALSE}
 model <- "NBZIMM_rel_asinsqrt"
 
-ht_beta_ZIG_qval <- print_Rosner_model(paste(path_analysis_Taxa, "ResultsBetadiv/", sep=""), model, q.value_tresh=0.4, p.value_tresh=1, inter1, inter2, additional_name2=trans_beta, additional_name3=prev, name="-log(qval)*sign(est)", print=T, order=T, option1=F, dif_full=dif_full, remove_patterns="_")
-
-draw(ht_beta_ZIG_qval$HM, padding = unit(c(2, 25, 2, 2), "mm")) 
-```
-
-### pval<0.015 filtering
-```{r paged.print=FALSE}
-model <- "NBZIMM_rel_asinsqrt"
-
-ht_beta_ZIG_pval <- print_Rosner_model(paste(path_analysis_Taxa, "ResultsBetadiv/", sep=""), model, q.value_tresh=1, p.value_tresh=0.015, inter1, inter2, additional_name2=trans_beta, additional_name3=prev, name="-log(qval)*sign(est)", print=T, order=T, option1=F, dif_full=dif_full, remove_patterns="_")
+ht_beta_ZIG_pval <- print_Rosner_model(paste(path_analysis_Taxa, "ResultsBetadiv/", sep=""), model, q.value_tresh=1, p.value_tresh=0.015, inter1, inter2, additional_name2="_prev0.2", name="-log(qval)*sign(est)", print=T, order=T, dif_full=dif_full, remove_patterns="_")
 
 draw(ht_beta_ZIG_pval$HM, padding = unit(c(2, 25, 2, 2), "mm")) 
 ```
 
 
+```{r}
+ggsave("Figure2_Heatmap_species_pval.png", grid.grabExpr(draw(ht_beta_ZIG_pval$HM), wrap = TRUE), height=5, width=8)
+```
 
 
+# Figure 4 A, B, D
 
 ## Pathway
 
-
-### qval<0.1 filtering
 ```{r paged.print=FALSE}
 model <- "lmer_bc"
-ht_pathway_lmer_qval <- print_Rosner_model(paste(path_analysis_Pathway, "ResultsBetadiv/", sep=""), model, q.value_tresh=0.1, p.value_tresh=1, inter1, inter2, additional_name2=trans_beta, additional_name3="", name="pthw", print=T, order=T, option1=F, dif_full=dif_full, remove_patterns=c("_bc", "_"), new_patterns =c("", " "))
+ht_pathway_lmer_pval <- print_Rosner_model(paste(path_analysis_Pathway, sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, name="pthw", print=T, order=T, dif_full=dif_full, remove_patterns=c("_bc", "_"), new_patterns =c("", " "))
 
 
 model <- "NBZIMM_asinsqrt"
-ht_pathway_ZIG_qval  <- print_Rosner_model(paste(path_analysis_Pathway, "ResultsBetadiv/", sep=""), model, q.value_tresh=0.1, p.value_tresh=1, inter1, inter2, additional_name2=trans_beta, additional_name3="", name="pthw", print=T, order=T, option1=F, dif_full=dif_full, remove_patterns="_")
-```
-
-```{r}
-# Check if detected Pathways are in both models
-path_lmer <- gsub("_bc", "", rownames(ht_pathway_lmer_qval$res))
-path_zig <- rownames(ht_pathway_ZIG_qval$res)
-path_lmer %in% path_zig
-path2model <- path_lmer[path_lmer %in% path_zig]
-path2model
-# "PPGPPMET_PWY" "PWY_6895"     "PWY66_409"   are in both models
-```
-
-
-
-```{r}
-draw(ht_pathway_ZIG_qval$HM, padding = unit(c(2, 25, 2, 2), "mm")) 
-```
-
-
-
-```{r}
-draw(ht_pathway_lmer_qval$HM, padding = unit(c(2, 25, 2, 2), "mm")) 
-```
-```{r paged.print=FALSE}
-ht_pathway_lmer_qval$res[path2model,]
-ht_pathway_ZIG_qval$res[path2model,]
-```
-
-```{r paged.print=FALSE}
-ht_pathway_lmer_qval$res_prt[path2model,]
-ht_pathway_ZIG_qval$res_prt[path2model,]
-```
-
-
-```{r}
-# merge results from pathways in different models
-ht_pathway_lmer_qval$res[path2model,"YO-B"] <- ht_pathway_ZIG_qval$res[path2model,"YO-B"]
-ht_pathway_ZIG_qval$res <- ht_pathway_ZIG_qval$res[- which(rownames(ht_pathway_ZIG_qval$res) %in% path2model), ]
-
-ht_pathway_lmer_qval$res_prt[path2model, c("YO-B.est", "YO-B.q.val")] <- ht_pathway_ZIG_qval$res_prt[path2model, c("YO-B.est", "YO-B.q.val")]
-ht_pathway_ZIG_qval$res_prt <- ht_pathway_ZIG_qval$res_prt[- which(rownames(ht_pathway_ZIG_qval$res_prt) %in% path2model), ]
-```
-
-```{r}
-pathway_res <- rbind(ht_pathway_lmer_qval$res, ht_pathway_ZIG_qval$res)
-pathway_res_prt_qval <- rbind(ht_pathway_lmer_qval$res_prt, ht_pathway_ZIG_qval$res_prt)
-
-res.qval <- pathway_res_prt_qval[, c(paste(dif_full, ".q.val", sep=""), 
-                                paste(inter1, "-B.q.val", sep=""), 
-                                paste(inter2, "-B.q.val", sep=""))]
-res.qval[is.na(res.qval)] <- 1
-cell_fun <- function(j, i, x, y, w, h, fill) {
-  if(res.qval[i, j] < 0.001) {
-    grid.text("***", x, y)
-  } else if(res.qval[i, j] < 0.01) {
-    grid.text("**", x, y)
-  }else if(res.qval[i, j] < 0.05) {
-    grid.text("*", x, y)
-  }
-}
-  
-ht_pathway_qval <- Heatmap(as.matrix(pathway_res), name="-log(qval)*sign(est)", cell_fun=cell_fun, col= col_fun_div, 
-                cluster_rows=F, row_names_side = "left", cluster_columns=F, 
-                row_names_max_width = unit(9, "cm"), column_names_rot = 0, 
-                column_names_centered =T)
-
-draw(ht_pathway_qval, padding = unit(c(2, 25, 2, 2), "mm")) 
-```
-
-### pval<0.01 filtering
-```{r paged.print=FALSE}
-model <- "lmer_bc"
-ht_pathway_lmer_pval <- print_Rosner_model(paste(path_analysis_Pathway, "ResultsBetadiv/", sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, additional_name2=trans_beta, additional_name3="", name="pthw", print=T, order=T, option1=F, dif_full=dif_full, remove_patterns=c("_bc", "_"), new_patterns =c("", " "))
-
-
-model <- "NBZIMM_asinsqrt"
-ht_pathway_ZIG_pval  <- print_Rosner_model(paste(path_analysis_Pathway, "ResultsBetadiv/", sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, additional_name2=trans_beta, additional_name3="", name="pthw", print=T, order=T, option1=F, dif_full=dif_full, remove_patterns="_")
+ht_pathway_ZIG_pval  <- print_Rosner_model(paste(path_analysis_Pathway, sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, name="pthw", print=T, order=T, dif_full=dif_full, remove_patterns="_")
 ```
 
 
@@ -262,25 +157,7 @@ path2model
 # "PPGPPMET_PWY" "PWY_6895"     "PWY66_409"   are in both models
 ```
 
-```{r}
-draw(ht_pathway_ZIG_pval$HM, padding = unit(c(2, 25, 2, 2), "mm")) 
-```
 
-
-
-```{r}
-draw(ht_pathway_lmer_pval$HM, padding = unit(c(2, 25, 2, 2), "mm")) 
-```
-
-```{r paged.print=FALSE}
-ht_pathway_lmer_pval$res[path2model,]
-ht_pathway_ZIG_pval$res[path2model,]
-```
-
-```{r paged.print=FALSE}
-ht_pathway_lmer_pval$res_prt[path2model,]
-ht_pathway_ZIG_pval$res_prt[path2model,]
-```
 
 ```{r}
 # merge results from pathways in different models
@@ -314,8 +191,6 @@ ht_pathway_pval <- Heatmap(as.matrix(pathway_res), name="-log(qval)*sign(est)", 
                 cluster_rows=F, row_names_side = "left", cluster_columns=F, 
                 row_names_max_width = unit(9, "cm"), column_names_rot = 0, 
                 column_names_centered =T)
-
-draw(ht_pathway_pval, padding = unit(c(2, 25, 2, 2), "mm")) 
 ```
 
 
@@ -327,8 +202,7 @@ pathway_res_newNames <- pathway_res
 rownames(pathway_res_newNames) <- pathways_description_res$Description
 ```
 
-
-```{r}
+```{r fig.height=9, fig.width=9}
 # Changing row names from Pathways IDs to description
 
 ht_pathway_pval_newNames <- Heatmap(as.matrix(pathway_res_newNames), name="-log(qval)*sign(est)", cell_fun=cell_fun, col= col_fun_div, 
@@ -340,33 +214,27 @@ draw(ht_pathway_pval_newNames, padding = unit(c(2, 25, 2, 2), "mm"))
 ```
 
 
+```{r}
+ggsave("Figure4_Heatmap_pathways_pval_newNames.png", grid.grabExpr(draw(ht_pathway_pval_newNames, padding = unit(c(2, 73, 2, 2), "mm")), wrap = TRUE), height=10, width=10.4)
+```
+
 
 ## KEGG
 
 
 ```{r paged.print=FALSE}
 model <- "lmer_bc"
-ht_KEGG_lmer <- print_Rosner_model(paste(path_analysis_KEGG, "ResultsBetadiv/", sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, additional_name2=trans_beta, additional_name3="", name="Kegg", print=T, order=T, option1=F, dif_full=dif_full, remove_patterns="_bc", new_patterns ="")
+ht_KEGG_lmer <- print_Rosner_model(paste(path_analysis_KEGG, sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, name="Kegg", print=T, order=T, dif_full=dif_full, remove_patterns="_bc", new_patterns ="")
 
 
 model <- "NBZIMM_asinsqrt"
-ht_KEGG_ZIG <- print_Rosner_model(paste(path_analysis_KEGG, "ResultsBetadiv/", sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, additional_name2=trans_beta, additional_name3="", name="Kegg", print=T, order=T, option1=F, dif_full=dif_full)
+ht_KEGG_ZIG <- print_Rosner_model(paste(path_analysis_KEGG, sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, name="Kegg", print=T, order=T, dif_full=dif_full)
 ```
 
 ```{r}
 # Check if detected KEGG are in both models
 rownames(ht_KEGG_lmer$res) %in% rownames(ht_KEGG_ZIG$res)
 ```
-
-```{r}
-draw(ht_KEGG_lmer$HM, padding = unit(c(2, 25, 2, 2), "mm")) 
-```
-
-```{r}
-draw(ht_KEGG_ZIG$HM, padding = unit(c(2, 25, 2, 2), "mm")) 
-```
-
-
 
 ```{r}
 KEGG_res <- rbind(ht_KEGG_lmer$res, ht_KEGG_ZIG$res)
@@ -390,8 +258,6 @@ ht_KEGG_pval <- Heatmap(as.matrix(KEGG_res), name="-log(qval)*sign(est)", cell_f
                 cluster_rows=F, row_names_side = "left", cluster_columns=F, 
                 row_names_max_width = unit(9, "cm"), column_names_rot = 0, 
                 column_names_centered =T)
-
-draw(ht_KEGG_pval, padding = unit(c(2, 25, 2, 2), "mm")) 
 ```
 
 
@@ -413,7 +279,7 @@ rownames(KEGG_res_newNames) <- KEGG_description_res$Description
 ```
 
 
-```{r}
+```{r fig.height=6, fig.width=9}
 # Changing row names from KEGGs IDs to description
 
 ht_KEGG_pval_newNames <- Heatmap(as.matrix(KEGG_res_newNames), name="-log(qval)*sign(est)", cell_fun=cell_fun, col= col_fun_div, 
@@ -424,18 +290,22 @@ ht_KEGG_pval_newNames <- Heatmap(as.matrix(KEGG_res_newNames), name="-log(qval)*
 draw(ht_KEGG_pval_newNames, padding = unit(c(2, 25, 2, 2), "mm")) 
 ```
 
+```{r}
+ggsave("Figure4_Heatmap_KEGG_pval_newNames.png", grid.grabExpr(draw(ht_KEGG_pval_newNames, padding = unit(c(2, 165, 100, 2), "mm")), wrap = TRUE), height=9, width=14)
+```
+
+
 
 ## GO terms 
 
-Only with no covariates
 
 ```{r paged.print=FALSE}
 model <- "lmer_bc"
-ht_GO_lmer <- print_Rosner_model(paste(path_analysis_GO, "ResultsBetadiv/", sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, additional_name2=trans_beta, additional_name3="", name="GO", print=T, order=T, option1=F, dif_full=dif_full, remove_patterns=c("_bc", "_"), new_patterns =c("", ":"))
+ht_GO_lmer <- print_Rosner_model(paste(path_analysis_GO, sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, name="GO", print=T, order=T, dif_full=dif_full, remove_patterns=c("_bc", "_"), new_patterns =c("", ":"))
 
 
 model <- "NBZIMM_asinsqrt"
-ht_GO_ZIG <- print_Rosner_model(paste(path_analysis_GO, "ResultsBetadiv/", sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, additional_name2=trans_beta, additional_name3="", name="GO", print=T, order=T, option1=F, dif_full=dif_full, remove_patterns="_", new_patterns =":")
+ht_GO_ZIG <- print_Rosner_model(paste(path_analysis_GO, sep=""), model, q.value_tresh=1, p.value_tresh=0.01, inter1, inter2, name="GO", print=T, order=T, dif_full=dif_full, remove_patterns="_", new_patterns =":")
 ```
 
 
@@ -444,14 +314,6 @@ ht_GO_ZIG <- print_Rosner_model(paste(path_analysis_GO, "ResultsBetadiv/", sep="
 rownames(ht_GO_lmer$res) %in% rownames(ht_GO_ZIG$res)
 ```
 
-
-```{r}
-draw(ht_GO_lmer$HM, padding = unit(c(2, 25, 2, 2), "mm")) 
-```
-
-```{r}
-draw(ht_GO_ZIG$HM, padding = unit(c(2, 25, 2, 2), "mm")) 
-```
 
 
 
@@ -477,8 +339,6 @@ ht_GO_pval  <- Heatmap(as.matrix(GO_res), name="-log(qval)*sign(est)", cell_fun=
                 cluster_rows=F, row_names_side = "left", cluster_columns=F, 
                 row_names_max_width = unit(9, "cm"), column_names_rot = 0, 
                 column_names_centered =T)
-
-draw(ht_GO_pval, padding = unit(c(2, 25, 2, 2), "mm")) 
 ```
 
 
@@ -493,7 +353,7 @@ rownames(GO_res_newNames) <- GO_description_res$Description
 ```
 
 
-```{r}
+```{r fig.height=9, fig.width=9}
 # Changing row names from GO IDs to description
 
 ht_GO_pval_newNames  <- Heatmap(as.matrix(GO_res_newNames), name="-log(qval)*sign(est)", cell_fun=cell_fun, col= col_fun_div, 
@@ -504,58 +364,6 @@ ht_GO_pval_newNames  <- Heatmap(as.matrix(GO_res_newNames), name="-log(qval)*sig
 draw(ht_GO_pval_newNames, padding = unit(c(2, 25, 2, 2), "mm")) 
 ```
 
-# Combined heatmap
-
-
-```{r}
-ht_list = ht_alpha %v% ht_BM %v% ht_SCFA
-draw(ht_list)
-```
-# Saving
-```{r}
-ggsave("Figure2_Heatmap_alpha.png", grid.grabExpr(draw(ht_list), wrap = TRUE), height=4, width=6)
-```
-
-```{r}
-ggsave("Figure2_Heatmap_species_pval.png", grid.grabExpr(draw(ht_beta_ZIG_pval$HM), wrap = TRUE), height=5, width=8)
-```
-
-```{r}
-ggsave("Figure2_Heatmap_species_qval.png", grid.grabExpr(draw(ht_beta_ZIG_qval$HM), wrap = TRUE), height=5, width=8)
-```
-
-
-
-
-```{r}
-ggsave("Figure4_Heatmap_pathways_pval.png", grid.grabExpr(draw(ht_pathway_pval), wrap = TRUE), height=9, width=7)
-```
-
-```{r}
-ggsave("Figure4_Heatmap_pathways_pval_newNames.png", grid.grabExpr(draw(ht_pathway_pval_newNames, padding = unit(c(2, 73, 2, 2), "mm")), wrap = TRUE), height=10, width=10.4)
-```
-
-```{r}
-ggsave("Figure4_Heatmap_pathways_qval.png", grid.grabExpr(draw(ht_pathway_qval), wrap = TRUE), height=9, width=7)
-```
-
-
-
-
-```{r}
-ggsave("Figure4_Heatmap_KEGG_pval.png", grid.grabExpr(draw(ht_KEGG_pval), wrap = TRUE), height=6, width=5)
-```
-
-```{r}
-ggsave("Figure4_Heatmap_KEGG_pval_newNames.png", grid.grabExpr(draw(ht_KEGG_pval_newNames, padding = unit(c(2, 165, 100, 2), "mm")), wrap = TRUE), height=9, width=14)
-```
-
-
-
-
-```{r}
-ggsave("Figure4_Heatmap_GO_pval.png", grid.grabExpr(draw(ht_GO_pval), wrap = TRUE), height=9, width=6)
-```
 
 ```{r}
 ggsave("Figure4_Heatmap_GO_pval_newNames.png", grid.grabExpr(draw(ht_GO_pval_newNames, padding = unit(c(2, 82, 2, 2), "mm")), wrap = TRUE), height=10, width=10.74)
@@ -564,30 +372,13 @@ ggsave("Figure4_Heatmap_GO_pval_newNames.png", grid.grabExpr(draw(ht_GO_pval_new
 
 
 
-# Check taxa
+# Sup Figure 4
 
 
 
 ```{r}
 taxa_type <- "Species"
 res_reduced <- ht_beta_ZIG_pval$res_prt[, col_to_keep_qval]
-res_reduced <- ht_beta_ZIG_qval$res_prt[, col_to_keep_qval]
-
-taxa_type <- "Pathway"
-res_reduced <- pathway_res_prt_pval[, col_to_keep_qval]
-rownames(res_reduced) <- gsub("_bc", "", rownames(res_reduced))
-
-res_reduced <- pathway_res_prt_qval[, col_to_keep_qval]
-rownames(res_reduced) <- gsub("_bc", "", rownames(res_reduced))
-
-
-taxa_type <- "KEGG"
-res_reduced <- KEGG_res_prt[, col_to_keep_qval]
-rownames(res_reduced) <- gsub("_bc", "", rownames(res_reduced))
-
-taxa_type <- "GO"
-res_reduced <- GO_res_prt[, col_to_keep_qval]
-rownames(res_reduced) <- gsub("_bc", "", rownames(res_reduced))
 ```
 
 ```{r}
@@ -597,25 +388,13 @@ rownames(res_reduced) <- gsub(":", "_", rownames(res_reduced))
 
 
 ```{r include=FALSE}
-if(taxa_type == "Species") load(paste(path_analysis_Taxa, "tse_allwithordination.Rdata", sep=""))
-if(taxa_type == "Pathway") load(paste(path_analysis_Pathway, "tse_allwithordination.Rdata", sep=""))
-if(taxa_type == "KEGG") load(paste(path_analysis_KEGG, "tse_allwithordination.Rdata", sep=""))
-if(taxa_type == "GO") load(paste(path_analysis_GO, "tse_allwithordination.Rdata", sep=""))
+load(paste(path_analysis_Taxa, "tse_allwithordination.Rdata", sep=""))
 
 
-if(taxa_type %in% c("Species", "Genus")) assay_t <- t(assays(tse)[["relabundance"]]) 
-if(taxa_type %in% c("Pathway", "946461Genes", "191601Genes", "KEGG", "GO")) assay_t <- t(assays(tse)[["CPM"]]) 
+assay_t <- t(assays(tse)[["relabundance"]]) 
 assay_t <- as.data.frame(assay_t)
-if(taxa_type == "GO"){
-  colnames(assay_t) <- gsub(":", "_", colnames(assay_t))
-} else colnames(assay_t) <- gsub(paste(taxa_type, ":", sep=""), "", colnames(assay_t))
-
-####ONLY FOR ZIG MODEL!!!! (to have plot on the transformed scale)
-if(taxa_type %in% c("Species", "Genus")) assay_t <- asin(sqrt(assay_t/100))
-if(taxa_type %in% c("946461Genes", "191601Genes", "KEGG", "GO")) assay_t <- asin(sqrt(assay_t/1000000))
-# if(taxa_type == "Pathway") assay_t <- asin(sqrt(assay_t)) 
-# for pathway we keep the original scale
-####
+colnames(assay_t) <- gsub(paste(taxa_type, ":", sep=""), "", colnames(assay_t))
+assay_t <- asin(sqrt(assay_t/100))
 
 assay_t$Sample_ID <- rownames(assay_t)
 metadata <- as.data.frame(colData(tse))
@@ -626,34 +405,16 @@ DF$T <- rep("T", nrow(DF)) # just because we need a variable "T" non numeric to 
 
 
 ```{r}
-if(taxa_type %in% c("Species", "Genus")){
-  height=20
-  width=22
-  # height=20
-  # width=27
-  layout_height = c(2, 2)
-  trans = "psd_log"
-  order = "names"
-  ncol <- 4
-}
+height=20
+width=22
+# height=20
+# width=27
+layout_height = c(2, 2)
+trans = "psd_log"
+order = "names"
+ncol <- 4
 
-if(taxa_type %in% c("Pathway", "946461Genes", "191601Genes", "GO")){
-  height=30
-  width=35
-  layout_height = c(1, 2)
-  trans = "none"
-  order = "q.value"
-  ncol <- 6
-}
 
-if(taxa_type %in% c("KEGG")){
-  height=30
-  width=35
-  layout_height = c(1, 2)
-  trans = "none"
-  order = "q.value"
-  ncol <- 4
-}
 
 compas <- c(dif_full, dif_int1 , dif_int2 )
 for(i in 1:3){
@@ -693,53 +454,18 @@ for(i in 1:3){
 
 ```
 
+
 ```{r}
 # Species
 height=32
 width=17
-ggsave(file="Sup_Figure6_pval.png",
+ggsave(file="Sup_Figure4_pval.png", 
        wrap_elements(pp_full1) + wrap_elements(pp_inter1_B) + wrap_elements(pp_inter2_B) +  plot_layout(ncol=1, nrow=3, heights = c(3,3,4)), height = height, width=width)
 ```
 
 
-```{r}
-# Species
-height=27
-width=22
-ggsave(file="Sup_Figure6_qval.png",
-       wrap_elements(pp_full1) + wrap_elements(pp_inter1_B) + wrap_elements(pp_inter2_B) +  plot_layout(ncol=1, nrow=3, heights = c(1,2,5)), height = height, width=width)
-```
 
-
-```{r}
-# Pathways
-height=40
-width=17
-ggsave(file="Sup_Figure11_pval.png",
-       wrap_elements(pp_full1) + wrap_elements(pp_inter1_B) + wrap_elements(pp_inter2_B) +  plot_layout(ncol=1, nrow=3, heights = c(2,9,6)), height = height, width=width)
-```
-
-
-```{r}
-# KEGG
-height=32
-width=17
-ggsave(file="Sup_Figure12_pval.png",
-       wrap_elements(pp_full1) + wrap_elements(pp_inter1_B) + wrap_elements(pp_inter2_B) +  plot_layout(ncol=1, nrow=3, heights = c(2,4,3)), height = height, width=width)
-```
-
-
-```{r}
-# GO
-height=40
-width=17
-ggsave(file="Sup_Figure13_pval.png",
-       wrap_elements(pp_full1) + wrap_elements(pp_inter1_B) + wrap_elements(pp_inter2_B) +  plot_layout(ncol=1, nrow=3, heights = c(1,6,6)), height = height, width=width)
-```
-
-
-
-# Export names of Pathways, KEGGs, GO kept in final heatmap (01/2025)
+# Sup Table 2-4
 
 
 ```{r}

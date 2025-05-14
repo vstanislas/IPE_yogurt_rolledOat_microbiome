@@ -2222,7 +2222,7 @@ extract_Rosner_res <- function(file, q.value_tresh=1, p.value_tresh=1, name_leve
 
 library("xlsx")
 print_Rosner_model <- function(path_analysis, model, q.value_tresh=1, p.value_tresh=1,
-                               inter1, inter2, additional_name=NULL, name=model, print=T,  
+                               inter1, inter2, additional_name=NULL, additional_name2=NULL, name=model, print=T,  
                                order=F, col_rot=0, dif_full="Y-YO", group_name=NULL, 
                                custom_order=NULL, remove_patterns = NULL, new_patterns=NULL, 
                                change_feature_name=NULL, toKeep=NULL){
@@ -2231,10 +2231,9 @@ print_Rosner_model <- function(path_analysis, model, q.value_tresh=1, p.value_tr
   dif_inter1 <- paste(inter1, "-B", sep="")
   dif_inter2 <- paste(inter2, "-B", sep="")
   
-
-  file_full <- paste(path_analysis , model, "_full", additional_name, "_results.xlsx", sep="")
-  file_inter1 <- paste(path_analysis , model, "_", inter1, additional_name, "_results.xlsx", sep="")
-  file_inter2 <- paste(path_analysis , model, "_", inter2, additional_name, "_results.xlsx", sep="")
+  file_full <- paste(path_analysis , model, "_full", additional_name, "_results", additional_name2, ".xlsx", sep="")
+  file_inter1 <- paste(path_analysis , model, "_", inter1, additional_name, "_results", additional_name2, ".xlsx", sep="")
+  file_inter2 <- paste(path_analysis , model, "_", inter2, additional_name, "_results", additional_name2, ".xlsx", sep="")
 
   
   # Use results from pairwise comparison in PRS_all
