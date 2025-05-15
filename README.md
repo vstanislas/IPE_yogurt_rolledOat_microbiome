@@ -4,10 +4,10 @@ Repository for the code and data of the results presented in Thriene et all. *"I
 
 
 # Structure of the repository
-`DataAnalysis`: contains code and results for all analyses presented in the manuscript
-`DataPreparation`: contains all data files and code used to prepare data for analysis
-`FiguresPaper`: code used to generate the figures shown in the manuscript
-`R functions`: a collection of R scripts with helper functions used throughout the data analysis
+- `DataAnalysis`: contains code and results for all analyses presented in the manuscript
+- `DataPreparation`: contains all data files and code used to prepare data for analysis
+- `FiguresPaper`: code used to generate the figures shown in the manuscript
+- `R functions`: a collection of R scripts with helper functions used throughout the data analysis
 
 # DATA files
 
