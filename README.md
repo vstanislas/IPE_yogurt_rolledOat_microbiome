@@ -3,9 +3,13 @@
 Repository for the code and data of the results presented in Thriene et all. *"Impact of Yogurt and Rolled Oats on the Gut Microbiome: A Randomized Crossover Study displaying Individual Responses and General Resilience"* (under revision).
 
 
+# Structure of the repository
+`DataAnalysis`: contains code and results for all analyses presented in the manuscript
+`DataPreparation`: contains all data files and code used to prepare data for analysis
+`FiguresPaper`: code used to generate the figures shown in the manuscript
+`R functions`: a collection of R scripts with helper functions used throughout the data analysis
 
-
-# Original DATA files
+# DATA files
 
 ## Metagenomic data
 Raw metagenomic sequencing data have been deposited in the NCBI Sequence Read Archive (SRA) under accession number [PRJNA125884](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA1258884)
