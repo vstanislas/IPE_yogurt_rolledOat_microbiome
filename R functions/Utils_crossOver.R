@@ -1056,7 +1056,8 @@ run_uniMarker_model <-
         
         
         if(!(any(class(ANOVA) %in% "try-error"))){
-          res_anov_i <- round(as.data.frame(ANOVA), 5)
+          # res_anov_i <- round(as.data.frame(ANOVA), 5)
+          res_anov_i <- as.data.frame(ANOVA)
           res_anov_i <- res_anov_i[which(rownames(res_anov_i) != "Residuals"),]
           res_anov_i$names <- rownames(res_anov_i)
           rownames(res_anov_i) <- NULL
@@ -1101,7 +1102,8 @@ run_uniMarker_model <-
           id_ratio <- which(grepl("ratio", colnames(PRS_i)))
           colnames(PRS_i)[id_CL] <- c("lower.CL", "upper.CL")
           colnames(PRS_i)[id_ratio] <- "ratio"
-          PRS_i[, c("ratio", "p.value")] <-  round(PRS_i[, c("ratio", "p.value")] , 4)
+          # PRS_i[, c("ratio", "p.value")] <-  round(PRS_i[, c("ratio", "p.value")] , 4)
+          PRS_i[, "ratio"] <-  round(PRS_i[, "ratio"] , 4)
           PRS_i$feature <- outcome_i
           if(class_out == "factor"){
             PRS_i$prev <- NA
@@ -1172,7 +1174,8 @@ run_uniMarker_model <-
     }
     
     
-    res_all$q.value <- round(p.adjust(res_all$p.value, method="fdr"), 4)
+    # res_all$q.value <- round(p.adjust(res_all$p.value, method="fdr"), 4)
+    res_all$q.value <- p.adjust(res_all$p.value, method="fdr")
     res_all <- res_all[order(res_all$p.value ),]
     
     # if(!(any(class(ANOVA) %in% "try-error"))){
@@ -1181,13 +1184,15 @@ run_uniMarker_model <-
     # } else {
     #   res_anov_all <- data.frame()
     # }
-    res_anov_all$q.value <- round(p.adjust(res_anov_all$p.value, method="fdr"), 4) # never tested outside if(!(any(class(ANOVA) %in% "try-error"))){
+    # res_anov_all$q.value <- round(p.adjust(res_anov_all$p.value, method="fdr"), 4) # never tested outside if(!(any(class(ANOVA) %in% "try-error"))){
+    res_anov_all$q.value <- p.adjust(res_anov_all$p.value, method="fdr")
     
     if("LR.Chisq" %in% colnames(res_anov_all)) res_anov_all <- res_anov_all[order(res_anov_all$p.value, decreasing = F),]
     if("Chisq" %in% colnames(res_anov_all)) res_anov_all <- res_anov_all[order(res_anov_all$Chisq, decreasing = T),]
     if("F.value" %in% colnames(res_anov_all)) res_anov_all <- res_anov_all[order(res_anov_all$F.value, decreasing = T),]
     
-    PRS_all$q.value <- round(p.adjust(PRS_all$p.value, method="fdr"), 4)
+    # PRS_all$q.value <- round(p.adjust(PRS_all$p.value, method="fdr"), 4)
+    PRS_all$q.value <- p.adjust(PRS_all$p.value, method="fdr")
     PRS_all <- PRS_all[order(abs(PRS_all$ratio), decreasing = T),]
     
     

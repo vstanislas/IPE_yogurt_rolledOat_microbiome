@@ -35,18 +35,18 @@ library(reshape)
 ```
 
 
-```{r include=FALSE}
-dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
+```{r}
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/Public_repository/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+
 path_clustering <- paste(dir, "DataAnalysis/Results_Grouped_Analysis/Clustering/", sep="")
 path_results <- paste(dir, "DataAnalysis/Results_Grouped_Analysis/Results_clustering_NN_rel/", sep="")
-path_tax_AllSamples <- paste(dir, "DataAnalysis/Results_Complete_Analysis/ResultsTaxonomy/On_relabundance_AllSamples/", sep="")
-
-source(file = paste(dir, "Utils.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
-source(file = paste(dir0, "R functions/code_utils.R", sep=""))
+path_tax_AllSamples <- paste(dir, "DataAnalysis/Results_Main_Analysis/ResultsTaxonomy/", sep="")
+ 
+source(file = paste(dir, "R functions/Utils.R", sep=""))
+source(file = paste(dir, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir, "R functions/code_utils.R", sep=""))
 
 cols <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", 
           Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
@@ -54,6 +54,8 @@ cols_Inter_treat <- cols
 
 colors20 <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9', "grey2")
 ```
+
+
 
 
 # Load data and grouping info 
@@ -68,7 +70,7 @@ load(paste(path_tax_AllSamples, "tse_allwithordination.Rdata", sep=""))
 ```{r}
 ### Load clustering results
 name_grouping <- "Kmeans_relabundance_bray"
-load(file = paste(path_clustering, "ResultsAlgo/NNGraph_relabundance__kT1_8_kT3_6.Rdata", sep=""))
+load(file = paste(path_clustering, "NNGraph_relabundance__kT1_8_kT3_6.Rdata", sep=""))
 identical(colData(tse)$Sample_ID, clust_meta$Sample_ID)
 identical(colData(tse_sub)$Sample_ID, clust_meta$Sample_ID)
 colData(tse)$group_info <- clust_meta$clus_NNres_merged
@@ -100,6 +102,8 @@ plotReducedDim(tse2, "UMAP", colour_by = "group_info", shape_by ="Timepoint") +
 ```{r}
 # nb paticipants in each group
 table(colData(tse2)$group_info)/4
+   # 1    2    3    4 miss 
+   # 7    8   27   25    0 
 ```
 
 
@@ -164,10 +168,8 @@ measures <- c("Observed", "Pielou", "Simpson_evenness", "Shannon", "Inverse_Simp
 ```
 
 
-#### transformation  
 2 participants (ID071, ID090) are removed of the analysis as we do not have their BMI information.
 ```{r paged.print=FALSE}
-### saved in Rosner_Model_Trans_cov
 DF <- as.data.frame(colData(tse2))
 
 # transformation
@@ -183,7 +185,7 @@ measures_Trans <- sapply(names(trans_analysis), function(x) if(trans_analysis[[x
 
 
 ```{r}
-clusnb <- "4"
+clusnb <- "4" # To adapt: 1, 2, 3, 4
 
 #### Model full
 compar_var = "T"
@@ -262,7 +264,7 @@ DF_subs <- prepare_DATA(DF, NULL)
 
 
 ```{r}
-clusnb <- "4"
+clusnb <- "4" # To adapt: 1, 2, 3, 4
 
 #### Model full
 compar_var = "T"
@@ -313,7 +315,6 @@ run_uniMarker_model(taxa, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_m
 
 
 
-
 # Metabolomic
 
 ```{r}
@@ -328,15 +329,6 @@ DATA_wide <- merge(DATA_wide, clust_meta_sub, by="Sample_ID")
 DATA_wide <- subset(DATA_wide, group_info!="miss")
 ```
 
-
-
-```{r}
-# Same merging 
-# clust_meta_sub <- clust_meta[, c("Participant_ID", "Timepoint", "group_info")]
-# 
-# DATA_wide <- merge(DATA_wide, clust_meta_sub, by=c("Participant_ID", "Timepoint"))
-# DATA_wide <- subset(DATA_wide, group_info!="miss")
-```
 
 
 ```{r}
@@ -385,8 +377,6 @@ ggsave(paste(path_results, "ResultsMetabolomic/SCFA_byTreat.png", sep=""), wrap_
 
 ## Models
 
-### transformation no covariates
-
 ```{r paged.print=FALSE}
 # transformation
 trans_analysis <- c("bc", "bc", "bc", "bc", "bc", "bc", "bc", "bc")
@@ -403,7 +393,7 @@ measures_Trans <- sapply(names(trans_analysis), function(x) if(trans_analysis[[x
 
 
 ```{r}
-clusnb <- "4"
+clusnb <- "4" # To adapt: 1, 2, 3, 4
 
 #### Model full
 compar_var = "T"
@@ -508,7 +498,6 @@ ggsave(paste(path_results, "ResultsBlood/Blood_byTreat.png", sep=""), wrap_plots
 
 ## Models
 
-### transformation no covariates
 
 ```{r paged.print=FALSE}
 DF <- data_merged
@@ -543,7 +532,7 @@ measures_Trans <- sapply(names(trans_analysis), function(x) if(trans_analysis[[x
 
 
 ```{r}
-clusnb <- "4"
+clusnb <- "4" # To adapt: 1, 2, 3, 4
 
 #### Model full
 compar_var = "T"

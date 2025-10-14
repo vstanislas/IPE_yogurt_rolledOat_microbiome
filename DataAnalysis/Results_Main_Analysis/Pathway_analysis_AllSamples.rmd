@@ -47,17 +47,20 @@ library(tictoc)
 ```
 
 
-```{r message=FALSE}
-dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
-path_analysis <- paste(dir, "DataAnalysis/Results_Complete_Analysis/ResultsFunctional/On_pathways_AllSamples/", sep="")
 
-source(file = paste(dir, "Utils.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
-source(file = paste(dir0, "R functions/code_utils.R", sep=""))
+```{r}
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/Public_repository/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+path_analysis <- paste(dir, "DataAnalysis/Results_Main_Analysis/ResultsFunctional/On_pathways_AllSamples/", sep="")
+
+ 
+source(file = paste(dir, "R functions/Utils.R", sep=""))
+source(file = paste(dir, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir, "R functions/code_utils.R", sep=""))
 ```
+
+
 
 
 ```{r}
@@ -65,6 +68,8 @@ source(file = paste(dir0, "R functions/code_utils.R", sep=""))
 ### contains tse, tse_pathOnly
 load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
 ```
+
+# Data preparation
 
 
 ```{r message=FALSE}
@@ -131,42 +136,6 @@ rowData(tse_pathOnly)$abundance_max <- apply(assays(tse_pathOnly)[["CPM"]], 1, m
 ```
 
 
-```{r fig.height=7, fig.width=9}
-## Prevalence x abundance on the complete species data
-ggplot(as.data.frame(rowData(tse)), aes(abundance_sum, prevalence)) +
-  geom_point(alpha = 0.5) +
-  geom_rug(alpha = 0.1) +
-  scale_x_continuous(labels = scales::label_number(), name = "Total Abundance") +
-  scale_y_continuous(
-    labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
-    name = "Prevalence (%)",
-    sec.axis = sec_axis(
-      trans = ~ . * ncol(tse), breaks = scales::breaks_pretty(n = 9),
-      name = "Prevalence (N samples)"
-    )) + 
-  ggrepel::geom_text_repel(
-    data = function(df) filter(df, abundance_sum > 300 | prevalence > 0.6),
-  mapping = aes(label = Pathway), size = 2.5, min.segment.length = 0)+
-   theme_bw()
-
-ggplot(as.data.frame(rowData(tse_pathOnly)), aes(abundance_sum, prevalence)) +
-  geom_point(alpha = 0.5) +
-  geom_rug(alpha = 0.1) +
-  scale_x_continuous(labels = scales::label_number(), name = "Total Abundance") +
-  scale_y_continuous(
-    labels = scales::label_percent(), breaks = scales::breaks_pretty(n = 9),
-    name = "Prevalence (%)",
-    sec.axis = sec_axis(
-      trans = ~ . * ncol(tse), breaks = scales::breaks_pretty(n = 9),
-      name = "Prevalence (N samples)"
-    )) + 
-  ggrepel::geom_text_repel(
-    data = function(df) filter(df, abundance_sum > 300 | prevalence > 0.6),
-  mapping = aes(label = Pathway), size = 2.5, min.segment.length = 0)+
-   theme_bw()
-```
-
-
 
 ```{r fig.height=10, fig.width=12}
 ## Prevalence x abundance on the complete species data - axis log transformed
@@ -225,10 +194,10 @@ plot(abundance_CPM[-c(1:2)])
 - **Ordination/dimention reduction methods** 
   - **`r colorize("PCoA/MDS", "#02a0c8")`**: extension of Principal Components Analysis (PCA),  detect linear trends
   - **`r colorize("NMDS", "#02a0c8")`**: mon-metric multidimensional scaling can detect non-linear patterns
-  - **`r colorize("TSNE", "#02a0c8")`**: 
-  - **`r colorize("UMAP", "#02a0c8")`**: 
+  - **`r colorize("TSNE", "#02a0c8")`** 
+  - **`r colorize("UMAP", "#02a0c8")`**
   
-## On Species space - full data
+
 
 ```{r}
 load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
@@ -236,16 +205,13 @@ load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
 
 
 ```{r}
-### Strange plot when using tse, probably UNMAPPED and UNINTEGRATED explain all the variation on first axis??
+### UNMAPPED and UNINTEGRATED explain all the variation on first axis
 tse <- runMDS(tse, FUN = vegan::vegdist, method = "bray", name = "PCoA_BC", exprs_values = "relabundance", keep_dist = T)
 set.seed(40)
 
 tse <- runNMDS(tse, FUN = vegan::vegdist, method = "bray", name = "NMDS_BC", exprs_values = "relabundance", keep_dist = T)
 set.seed(40)
 
-
-# Alternative methods to try
-# not easy to change the metric for UMAP, no braycurtis dissimilarity in package uwot
 set.seed(122)
 tse <- runTSNE(tse, name = "TSNE", exprs_values="relabundance")
 set.seed(122)
@@ -260,9 +226,6 @@ set.seed(40)
 tse_pathOnly <- runNMDS(tse_pathOnly, FUN = vegan::vegdist, method = "bray", name = "NMDS_BC", exprs_values = "relabundance", keep_dist = T)
 set.seed(40)
 
-
-# Alternative methods to try
-# not easy to change the metric for UMAP, no braycurtis dissimilarity in package uwot
 set.seed(122)
 tse_pathOnly <- runTSNE(tse_pathOnly, name = "TSNE", exprs_values="relabundance")
 set.seed(122)
@@ -285,136 +248,8 @@ add_name <- "_pathOnly"
 ```
 
 
-### PCoA Bray-Curtis
 
-Almost the same representation when done on filtered data `tse_sub`.
-```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
-pp <- plot_ordination(tse_for_ordination, "PCoA_BC", sd_threshold=0.0875, data_type="Functional")
-e <- attr(reducedDim(tse_for_ordination, "PCoA_BC"), "eig");
-rel_eig <- e/sum(e[e>0])          
-x_lab = paste("PCoA 1 (", round(100 * rel_eig[[1]],1), "%", ")", sep = "")
-y_lab = paste("PCoA 2 (", round(100 * rel_eig[[2]],1), "%", ")", sep = "")
-
-PartHsd_PCoA_BC <- pp$Participants_high_sd
-p1 <- pp$p_gruppe + labs(x=x_lab, y=y_lab)
-p2 <- pp$p_topdom
-p3 <- pp$p_2ndtopdom
-p4 <- pp$p_inter_treat + labs(x=x_lab, y=y_lab)
-p5 <- pp$p_part + labs(x=x_lab, y=y_lab)
-p6 <- pp$p_hv_part + labs(x=x_lab, y=y_lab)
-```
-Warning message: "'clr' includes negative values. Agglomeration of it might lead to meaningless values." comes from `plot_ordination()` when identifying the most dominant taxa for a specific rank. We can ignore it as we use 'relabudance' assays for identifying dominant taxa.
-
-```{r fig.height=7, fig.width=10, message=FALSE, paged.print=FALSE}
-p2
-```
-
-```{r}
-pathway_multi <- names(abundance_CPM)[1:13]
-
-p_list <- list()
-for(i in seq(length(pathway_multi))){
-pathway <- pathway_multi[i]
-p_list[[i]] <- plot_ordination(tse, paste("PCoA_BC", add_name, sep=""), pathway=pathway, data_type="Functional")$p_1spec 
-}
-```
-
-
-```{r}
-ggsave(paste(path_analysis, "Plots/Ordination_plots/PCoA_BC", add_name,".png", sep=""), 
-       p1 + p5 + p2+ p4 + p6 + p3+ plot_layout(guides = 'collect'), 
-       width=30, height=15)
-
-
-ggsave(paste(path_analysis, "Plots/Ordination_plots/PCoA_BC", add_name,"_withAbundance.png", sep=""), 
-       wrap_plots(p_list, ncol=4) , 
-       width=30, height=20)
-```
-
-
-
-### NMDS Bray-Curtis
-
-Almost the same representation when done on filtered data `tse_sub`.
-```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
-pp <- plot_ordination(tse_for_ordination, "NMDS_BC", sd_threshold=0.05, data_type="Functional")
-PartHsd_NMDS_BC <- pp$Participants_high_sd
-p1 <- pp$p_gruppe 
-p2 <- pp$p_topdom
-p3 <- pp$p_2ndtopdom
-p4 <- pp$p_inter_treat 
-p5 <- pp$p_part 
-p6 <- pp$p_hv_part
-```
-
-
-```{r fig.height=7, fig.width=10, message=FALSE, paged.print=FALSE}
-p2
-```
-
-```{r}
-pathway_multi <- names(abundance_CPM)[1:13]
-
-p_list <- list()
-for(i in seq(length(pathway_multi))){
-pathway <- pathway_multi[i]
-p_list[[i]] <- plot_ordination(tse, paste("NMDS_BC", add_name, sep=""), pathway=pathway, data_type="Functional")$p_1spec 
-}
-```
-
-
-```{r}
-ggsave(paste(path_analysis, "Plots/Ordination_plots/NMDS_BC", add_name,".png", sep=""), 
-       p1 + p5 + p2+ p4 + p6 + p3+ plot_layout(guides = 'collect'), 
-       width=30, height=15)
-
-ggsave(paste(path_analysis, "Plots/Ordination_plots/NMDS_BC", add_name,"_withAbundance.png", sep=""), 
-       wrap_plots(p_list, ncol=4) , 
-       width=30, height=20)
-```
-
-
-
-### TSNE
-```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
-pp <- plot_ordination(tse_for_ordination, "TSNE", sd_threshold=10, data_type="Functional")
-PartHsd_TSNE <- pp$Participants_high_sd
-p1 <- pp$p_gruppe 
-p2 <- pp$p_topdom
-p3 <- pp$p_2ndtopdom
-p4 <- pp$p_inter_treat 
-p5 <- pp$p_part 
-p6 <- pp$p_hv_part
-```
-
-
-```{r fig.height=7, fig.width=10, message=FALSE, paged.print=FALSE}
-p2
-```
-
-```{r}
-pathway_multi <- names(abundance_CPM)[1:13]
-
-p_list <- list()
-for(i in seq(length(pathway_multi))){
-pathway <- pathway_multi[i]
-p_list[[i]] <- plot_ordination(tse, paste("TSNE", add_name, sep=""), pathway=pathway, data_type="Functional")$p_1spec 
-}
-```
-
-
-```{r}
-ggsave(paste(path_analysis, "Plots/Ordination_plots/TSNE", add_name,".png", sep=""),
-       p1 + p5 + p2+ p4 + p6 + p3+ plot_layout(guides = 'collect'), 
-       width=30, height=15)
-
-ggsave(paste(path_analysis, "Plots/Ordination_plots/TSNE", add_name,"_withAbundance.png", sep=""), 
-       wrap_plots(p_list, ncol=4) , 
-       width=30, height=20)
-```
-
-
-### UMAP
+## UMAP
 
 
 
@@ -444,34 +279,6 @@ p_list[[i]] <- plot_ordination(tse, paste("UMAP", add_name, sep=""), pathway=pat
 ```
 
 
-```{r}
-ggsave(paste(path_analysis, "Plots/Ordination_plots/UMAP", add_name,".png", sep=""),
-       p1 + p5 + p2+ p4 + p6 + p3+ plot_layout(guides = 'collect'), 
-       width=30, height=15)
-
-ggsave(paste(path_analysis, "Plots/Ordination_plots/UMAP", add_name,"_withAbundance.png", sep=""), 
-       wrap_plots(p_list, ncol=4) , 
-       width=30, height=20)
-```
-
-```{r}
-df_list <- list(PartHsd_PCoA_BC, PartHsd_NMDS_BC,
-                PartHsd_TSNE, PartHsd_UMAP)
-PartHsd <- df_list %>% purrr::reduce(dplyr::full_join, by='Participant_ID')
-PartHsd <- PartHsd[order(PartHsd$Participant_ID),]
-PartHsd <- dplyr::left_join(PartHsd, as.data.frame(subset(colData(tse), Timepoint=="T2")[, c(1,4:6)]), by="Participant_ID")   
-
-
-flextable(PartHsd)
-```
-
-
-```{r paged.print=FALSE}
-PartHsd$TotalOut <- rowSums(!is.na(PartHsd[, 2:(length(df_list)+1)]))
-
-flextable(subset(PartHsd, TotalOut>=3))
-```
-  
 
 ## Saving tse
 ```{r}
@@ -516,6 +323,9 @@ physeq_pathOnly %>%
 ```
 
 # Beta diversity
+```{r}
+library(NBZIMM)
+```
 
 ```{r message=FALSE}
 metadata <- as.data.frame(colData(tse))
@@ -531,6 +341,9 @@ assay_t_Y <- assay_t_Y[, pathways]
 assay_t_YO <- assay_t_YO[, pathways]
 ```
 
+
+**Separation between pathways with or without zeroes made on each subsets.**
+
 ```{r}
 Perct0 <- apply(assay_t, 2, function(x) sum(x==0)/nrow(assay_t)*100)
 Perct0_Y <- apply(assay_t_Y, 2, function(x) sum(x==0)/nrow(assay_t_Y)*100)
@@ -538,31 +351,6 @@ Perct0_YO <- apply(assay_t_YO, 2, function(x) sum(x==0)/nrow(assay_t_YO)*100)
 
 hist(Perct0)
 ```
-
-
-
-```{r}
-# path_infos <- data.frame(Perct0)
-# path_infos$Pathways <- rownames(path_infos)
-# path_infos$prev <- 100-path_infos$Perct0
-# path_infos <- path_infos[, c(2,1,3)]
-```
-
-```{r}
-# path_perct0_0 <- names(Perct0[Perct0 <= 0])
-# path_perct0_0_90 <- names(Perct0[Perct0 > 0 & Perct0 < 90])
-# path_no_fitted <- path_infos[which(!(path_infos$Pathways %in% path_perct0_0) & !(path_infos$Pathways %in% path_perct0_0_90)), "Pathways"]
-```
-
-```{r}
-# length(path_perct0_0)
-# length(path_perct0_0_90)
-# length(path_no_fitted)
-# # [1] 220
-# # [1] 273
-# # [1] 113
-```
-
 
 ```{r}
 path_infos <- data.frame(Perct0, Perct0_Y, Perct0_YO)
@@ -613,22 +401,8 @@ length(path_no_fitted_YO) # 113 Pathways have more than 90% zero values in Yogur
 # [1] 113
 ```
 
-## transformation + covariates
 
-**Old version: separation between patways with or without zeroes made on full subset.**
-
-We use the same set of pathways as `path_to_use` for model full, Y and YO.
-For pathways with no zeros only in Y (27 pathways) or YO (2 pathways) it will not be possible to run NBZIMM.
-For the final model (without covariate) that we use in the paper (see next section) we have different set of `path_to_use` for each model to avoid this issue.
-
-
-```{r}
-# length(path_perct0_0) # 220
-# length(path_perct0_0_90) # 273
-# length(path_no_fitted) # 113
-```
-
-
+## Models
 
 ```{r message=FALSE}
 assay_t <- t(assays(tse)[["CPM"]]) %>% as.data.frame()
@@ -639,143 +413,6 @@ DF <- merge(metadata, assay_t, by="Sample_ID")
 DF_subs <- prepare_DATA(DF, NULL)
 ```
 
-
-```{r}
-#### Model full
-compar_var = "T"
-DF_work=DF_subs$DF
-compa = "full"
-FE <- c("B", "T", "C1", "C2", "Geschlecht", "Alter")
-RE <- "Participant_ID"
-
-#### Model Y
-compar_var = "B"
-DF_work=DF_subs$DF_int1
-compa = "Y"
-FE <- c("B", "P", "Geschlecht", "Alter")
-RE <- "Participant_ID"
-
-#### Model YO
-compar_var = "B"
-DF_work=DF_subs$DF_int2
-compa = "YO"
-FE <- c("B", "P", "Geschlecht", "Alter")
-RE <- "Participant_ID"
-
-```
-
-### LMER on pathways without zeroes
-```{r}
-path_to_use <- path_perct0_0
-```
-
-
-```{r}
-model <- "lmer_bc"
-trans <- "_cov"
-sig_threshold <- 0.03
-```
-
-```{r}
-trans_var <- rep("bc", length(path_to_use))
-names(trans_var) <- path_to_use
-DF_work_mod <- transform_data(DF_work, trans_var)
-measures_Trans <- sapply(names(trans_var), function(x) if(trans_var[[x]] !="") paste(x, trans_var[[x]], sep="_") else x)
-```
-
-
-```{r}
-tic()
-# lmer
-wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
-setwd(wd0)
-run_taxa_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("lmer_bc_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("lmer_bc_cov/", compa, "/", sep=""))
-toc()
-# Model full - long because of check_mod=T
-# Model Y: 203.73 sec elapsed
-# Model YO: 188.5 sec elapsed
-```
-
-
-```{r}
-# Only check model for compa=full
-bad_fit_LM <- c("ASPASN_PWY", "COLANSYN_PWY", "FASYN_ELONG_PWY", "P23_PWY", "PHOSLIPSYN_PWY", "PWY_5659", "PWY_6876", "PWY_6897", "PWY_7221", "PWY_7357", "PWY_7456", "PWY0_1586", "PWY66_429", "THISYNARA_PWY")
-good_fit_LM <- path_perct0_0[!(path_perct0_0 %in% bad_fit_LM)]
-
-path_infos$fit_LM <- case_when(
-  path_infos$Pathways  %in% bad_fit_LM ~ "Bad fit",
-  path_infos$Pathways  %in% good_fit_LM ~ "good fit",
-  .default = "no fitted") 
-
-ggplot(subset(path_infos, fit_LM != "no fitted"), aes(x=Perct0, fill=fit_LM)) + 
-  geom_histogram(alpha=0.6, position = 'identity') +
-  scale_fill_manual(values=c("#404080", "#69b3a2", "pink")) 
-```
-### CPLM on pathways with zeroes
-
-```{r}
-model <- "glmmTMB"
-trans <- "_cov"
-sig_threshold <- 0.03
-```
-
-
-```{r}
-tic()
-# CPLM
-wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
-setwd(wd0)
-run_taxa_model(path_perct0_0_90[-c(56, 57)], package="glmmTMB", counts=F, FE=FE, RE=RE, DF=DF_work, compar_var=compar_var, var_check=NULL, savingName=paste("glmmTMB_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("glmmTMB_cov/", compa, "/", sep=""))
-toc()
-# Model full: 376.56 sec elapsed
-# Model Y: 477.94 sec elapsed  R stop for PWY_5367, PWY_6531 (id 56, 57)
-# Model YO: 350.66 sec elapsed
-```
-
-### ZIG on pathways with zeroes
-```{r}
-library(NBZIMM)
-```
-
-
-```{r}
-model <- "NBZIMM_asinsqrt"
-trans <- "_cov"
-sig_threshold <- 0.03
-```
-
-```{r}
-DF_work_mod=DF_work
-DF_work_mod[,pathways] <- asin(sqrt(DF_work_mod[, pathways]/1000000)) 
-```
-
-
-```{r}
-tic()
-# ZIG
-wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
-setwd(wd0)
-run_taxa_model(path_perct0_0_90, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("NBZIMM_asinsqrt_cov/", compa, "/", sep=""))
-toc()
-# Model full: 190.37 sec elapsed
-# Model Y: 191.65 sec elapsed
-# Model YO: 160.56 sec elapsed
-```
-
-
-
-
-
-## transformation no covariates
-
-**New version: separation between patways with or without zeroes made on each subsets.**
-
-Final model that we use in the paper, we have different set of `path_to_use` for each model to be sure to have results on all pathways.
-
-```{r}
-### saved in Rosner_Model_Trans
-# same DF and measures_Trans as defined in previous section
-```
 
 
 ```{r}
@@ -808,9 +445,7 @@ path_to_use_w0 <- path_perct0_0_90_YO
 ```
 
 ### LMER on pathways without zeroes
-```{r}
-# path_to_use <- path_perct0_0
-```
+
 
 ```{r}
 model <- "lmer_bc"
@@ -839,29 +474,7 @@ toc()
 ```
 
 
-### CPLM on pathways with zeroes
 
-```{r}
-model <- "glmmTMB"
-trans <- ""
-sig_threshold <- 0.03
-```
-
-
-Old version: use the same set of pathways as path_perct0_0_90 for model full, Y and YO. 
-We didn't rerun CPLM for the final analysis.
-
-```{r}
-tic()
-# CPLM
-wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
-setwd(wd0)
-run_taxa_model(path_perct0_0_90[-c(93, 94)], package="glmmTMB", counts=F, FE=FE, RE=RE, DF=DF_work, compar_var=compar_var, var_check=NULL, savingName=paste("glmmTMB_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("glmmTMB/", compa, "/", sep=""))
-toc()
-# Model full: 350.92 sec elapsed
-# Model Y: 410.14 sec elapsed  R stop for GALACTARDEG_PWY, GLUCARGALACTSUPER_PWY (id 93, 94)
-# Model YO: 346.25 sec elapsed
-```
 
 ### ZIG on pathways with zeroes
 
@@ -881,131 +494,14 @@ tic()
 # ZIG
 wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
 setwd(wd0)
-run_taxa_model(path_to_use_w0, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("NBZIMM_asinsqrt/", compa, "/", sep=""))
+run_taxa_model(path_to_use_w0, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F, path="Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/")
 toc()
 # Model full: 166.75 sec elapsed
 # Model Y: 143.54 sec elapsed / 133.41 sec elapsed
 # Model YO: 136.61 sec elapsed / 126.8 sec elapsed
+
+# paste("NBZIMM_asinsqrt/", compa, "/", sep="")
 ```
-
-
-
-
-## Redo important plots
-```{r}
-#### need to specify the following parameters from models defined above:
-# compar_var = 
-# compa = 
-# FE <- 
-# RE <- 
-# model <- 
-# DF_work_mod <-
-```
-
-
-```{r}
-### REDO all plots at new sig_threshold
-## Careful to have the correct DF_work_mod!! 
-
-sig_threshold <- 0.03
-
-path <- paste(path_analysis, "ResultsBetadiv/", model, trans, "/", compa,"/", sep="")
-res_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="res_all")
-res_anov_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="res_anov_all")
-PRS_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="PRS_all")
-
-savingName=paste(model, "_", compa, sep="")
-log_file <- file.path(path, "run_taxa_model.log")
-logging::addHandler(logging::writeToFile, file = log_file, level = "DEBUG")
-logging::logdebug("recreate plots with sig_threshold: %s", sig_threshold)
-
-plot_results(res_all, res_anov_all, PRS_all, DF=DF_work_mod, FE, sig_threshold, savingName, path)
-```
-
-
-```{r}
-### REDO Forest plot for better size
-path <- paste(path_analysis, "ResultsBetadiv/", model, trans, "/", compa,"/", sep="")
-res_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="res_all")
-sig_res_all <- subset(res_all, p.value < sig_threshold) 
-
-
-sig_res_all$color <- case_when(sig_res_all$q.value < 0.05 ~  "q.val<0.05",
-                               sig_res_all$q.value >= 0.05 ~ "q.val>=0.05")
-var <- unique(sig_res_all$names)
-ll_plot <- list()
-for(i in seq(var)){
-  sub <- subset(sig_res_all, names==var[i])
-  sub$feature <- factor(sub$feature, levels = rev(sub$feature))
-  pp <- ggplot(sub, aes(x=est, y=feature)) +  geom_point(size=1.2, aes(color=color)) +
-    scale_colour_manual(values= c(`q.val>=0.05`="black", `q.val<0.05`="#2196F3"))+
-    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40", linewidth=0.5) + 
-    xlab("effect size") + ylab("") + ggtitle(var[i]) + theme_minimal()
-  if(all(is.na(sub$ci_low))) ll_plot[[i]] <- pp
-  else  ll_plot[[i]] <- pp + geom_errorbar(aes(x = est, xmin = ci_low, xmax = ci_high, 
-                                               color=color), width = 0.2, linewidth=0.5) 
-}
-
-savingName <- paste(model, "_", compa, "_res_all_betterSize", sep="")
-ggsave_adaptSize(paste(path, savingName, ".png", sep=""), ll_plot, unit_width=5, unit_height=6)
-```
-
-
-
-```{r}
-### Forest plot on PRS results
-path <- paste(path_analysis, "ResultsBetadiv/", model, trans, "/", compa,"/", sep="")
-PRS_all <- read.xlsx(file=paste(path, model, "_", compa, "_results.xlsx", sep="") , sheetName="PRS_all")
-sig_res_PRS <- subset(PRS_all, p.value < sig_threshold) 
-
-sig_res_PRS$color <- case_when(sig_res_PRS$q.value < 0.05 ~  "q.val<0.05",
-                               sig_res_PRS$q.value >= 0.05 ~ "q.val>=0.05")
-sig_res_PRS$feature <- factor(sig_res_PRS$feature, levels = rev(sig_res_PRS$feature))
-
-if(compar_var == "B") xlab <- "After - Baseline"
-if(compar_var == "T") xlab <- "After_YogurtOatmeal - Other"
-
-pp <- ggplot(sig_res_PRS, aes(x=estimate, y=feature)) + geom_point(size=1.2, aes(color=color)) +
-    scale_colour_manual(values= c(`q.val>=0.05`="black", `q.val<0.05`="#2196F3"))+
-    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40", linewidth=0.5) + 
-    xlab(xlab) + ylab("") + theme_minimal()
-pp  <- pp + geom_errorbar(aes(x = estimate, xmin = lower.CL, xmax = upper.CL, 
-                                               color=color), width = 0.2, linewidth=0.5) 
-
-savingName <- paste(model, "_", compa, "_res_PRS", sep="")
-ggsave(paste(path, savingName, ".png", sep=""), pp, width=6, height=6)
-```
-
-
-```{r}
-# Print taxa plot for significant taxa in model full for better visualization
-path <- paste(path_analysis, "ResultsBetadiv/", model, trans, "/full/", sep="")
-PRS_all <- read.xlsx(file=paste(path, model, "_full_results.xlsx", sep="") , sheetName="PRS_all")
-sig_res_PRS <- subset(PRS_all, p.value < sig_threshold) 
-
-taxa_to_plot <- sig_res_PRS$feature
-
-## Careful to have the correct DF_work_mod!! 
-###### if LMER model check that DF_work_mod correspond to bc transfromation
-###### if ZIG model:
-# DF_work_mod[,taxa] <- asin(sqrt(DF_work_mod[, taxa]/100))
-
-
-for(i in seq(length(taxa_to_plot))){
-  taxa_to_plot_i <- taxa_to_plot[i]
-  
-  p_rel <- plot_taxa_variable(taxa_to_plot_i, DF_work_mod, counts=F)
-  
-  name_plot <- taxa_to_plot_i
-  if(nchar(name_plot) > 28) name_plot <- substr(name_plot, 1, 28)
-  
-  ggsave(paste(path, "/Plots/Plot_PRStaxa/", i, "_", name_plot, ".png", sep=""),
-         p_rel+ plot_annotation(title = taxa_to_plot_i), 
-         width=10, height=10)
-}
-```
-
-
 
 
 

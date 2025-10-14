@@ -18,7 +18,7 @@ library(ComplexHeatmap)
 
 
 ```{r message=FALSE, warning=FALSE}
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/Public_repository/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
 
 path_clustering <- paste(dir, "DataAnalysis/Results_Grouped_Analysis/Clustering/", sep="")
 path_tax_AllSamples <- paste(dir, "DataAnalysis/Results_Main_Analysis/ResultsTaxonomy/", sep="")
@@ -67,6 +67,8 @@ ess <- as.data.frame(colData(tse))
 ess <- subset(ess, Timepoint=="T3")
 
 table(ess$group_info)
+  #  1    2    3 miss 
+  # 18   38   24   30 
 ```
 
 ```{r}
@@ -445,6 +447,8 @@ ess <- as.data.frame(colData(tse))
 ess <- subset(ess, Timepoint=="T3")
 
 table(ess$group_info)
+   # 1    2    3    4 miss 
+   # 7    8   27   25   43 
 ```
 
 ```{r}
