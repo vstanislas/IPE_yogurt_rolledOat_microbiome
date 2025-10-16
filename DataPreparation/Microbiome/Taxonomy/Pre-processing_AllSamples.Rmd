@@ -19,14 +19,13 @@ library(microbiome)
 library(patchwork)
 library(ggExtra)
 
-dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
-dir <- paste(dir0, "2206_JoghurtStudy/Analysis/DataPreparation/Microbiome_DATA_Kun_Huang/", sep="")
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+dir1 <- paste(dir, "DataPreparation/Microbiome/", sep="")
 
-
-source(file = paste(dir0, "2206_JoghurtStudy/Analysis/Utils.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir, "R functions/Utils.R", sep=""))
+source(file = paste(dir, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir, "R functions/Utils_crossOver.R", sep=""))
 ```
 
 ```{r}
@@ -37,7 +36,7 @@ cols_Inter_treat <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", Bef
 # Loading tables
 ## Metadata
 ```{r}
-metadata <- read_excel("Metadata.xlsx", sheet=1)
+metadata <- read_excel(paste(dir1, "Metadata.xlsx", sep=""), sheet=1)
 metadata <- as.data.frame(metadata)
 
 metadata$Sample_ID <- gsub("-", "", metadata$Sample_ID)
@@ -74,6 +73,8 @@ table_rel_sp <- read.table("exp86-freiburg/merged_abundance_table_ALL_species.tx
 table_rel_sp_TAX <- read.table("exp86-freiburg/merged_abundance_table_ALL_species_TAX.txt", header=T, row.names = "clade_name")
 dim(table_rel_sp) #  1378  440
 summary(colSums(table_rel_sp))
+   # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   #  100     100     100     100     100     100 
 ```
 
 
@@ -82,6 +83,8 @@ table_rel_SGB <- read.table("exp86-freiburg/merged_abundance_table_ALL_SGB.txt",
 table_rel_SGB_TAX <- read.table("exp86-freiburg/merged_abundance_table_ALL_SGB_TAX.txt", header=T, row.names = "clade_name")
 dim(table_rel_SGB) #  1875  440
 summary(colSums(table_rel_sp))
+   # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   #  100     100     100     100     100     100 
 
 # Change rownames to fit with the phylogenetic tree
 #rownames(table_rel_SGB) <- gsub('SGB', '', rownames(table_rel_SGB))
@@ -125,7 +128,7 @@ as_tibble(tree)
 OTU = otu_table(table_rel_sp, taxa_are_rows = TRUE)
 TAX = tax_table(taxa_table_sp)
 SAM = sample_data(metadata)
-dim(OTU)
+dim(OTU)# [1] 1378  440
 ```
 
 ```{r}
@@ -162,7 +165,7 @@ if(!nrow(OTU) == nrow(otu_table(physeq_rel_sp))){
 OTU = otu_table(table_rel_SGB, taxa_are_rows = TRUE)
 TAX = tax_table(taxa_table_SGB)
 SAM = sample_data(metadata)
-dim(OTU)
+dim(OTU) # 1875  440
 ```
 
 ```{r}
@@ -192,6 +195,7 @@ if(!nrow(OTU) == nrow(otu_table(physeq_rel_SGB))){
   cat("Phyloseq taxa lost: ")
   rownames(OTU)[!(rownames(OTU) %in% inters_names)] %>% print()
 }
+# Phyloseq taxa lost: [1] "EUK4932"   "EUK944036"
 ```
 
 
@@ -200,6 +204,8 @@ if(!nrow(OTU) == nrow(otu_table(physeq_rel_SGB))){
 ## physeq_rel_sp
 ```{r}
 table(tax_table(physeq_rel_sp)[, "Kingdom"])
+  # Archaea  Bacteria Eukaryota 
+  #       9      1367         2 
 ```
 
 ### Description of the Eukaryota and Archea
@@ -208,6 +214,7 @@ table(tax_table(physeq_rel_sp)[, "Kingdom"])
 # Eukaryota 
 euk <- subset(as.data.frame(tax_table(physeq_rel_sp)), Kingdom=="Eukaryota")$Species
 euk
+# [1] "Saccharomyces_cerevisiae"  "Blastocystis_sp_subtype_1"
 ```
 
 
@@ -215,6 +222,11 @@ euk
 # Archaea  
 arch <- subset(as.data.frame(tax_table(physeq_rel_sp)), Kingdom=="Archaea")$Species
 arch
+# [1] "Methanobrevibacter_smithii"                    "Methanosphaera_stadtmanae"                    
+# [3] "Methanomassiliicoccaceae_unclassified_SGB380"  "GGB781_SGB1024"                               
+# [5] "Candidatus_Methanomethylophilus_alvus"         "Candidatus_Methanomassiliicoccus_intestinalis"
+# [7] "Methanomassiliicoccales_archaeon"              "GGB1567_SGB2154"                              
+# [9] "GGB260_SGB362"      
 ```
 
 
@@ -237,8 +249,21 @@ for(i in seq(length(taxa))){
 
 wrap_plots(pp_list, nrow=3) 
 ```
+
 ```{r paged.print=FALSE}
 data.frame(number_samples=absum, maximal_abundance=abmax, row.names = taxa)
+#                                               number_samples maximal_abundance
+# Saccharomyces_cerevisiae                                   7           0.00436
+# Blastocystis_sp_subtype_1                                 19           0.40002
+# Methanobrevibacter_smithii                               100           2.04360
+# Methanosphaera_stadtmanae                                 25           0.50993
+# Methanomassiliicoccaceae_unclassified_SGB380               1           0.05871
+# GGB781_SGB1024                                            17          11.13196
+# Candidatus_Methanomethylophilus_alvus                     11           0.47250
+# Candidatus_Methanomassiliicoccus_intestinalis              3           0.18422
+# Methanomassiliicoccales_archaeon                           4           0.37863
+# GGB1567_SGB2154                                            4           0.36372
+# GGB260_SGB362                                              3           0.53408
 ```
 
 ### Prevalence and abundance
@@ -284,16 +309,24 @@ cleanUp2 = phyloseq_CleanUp(physeq_rel_sp, thresh_abond = thresh_abond, thresh_p
 
 ```{r paged.print=FALSE}
 cleanUp1$df_filt
+#         dim_data del_noSample del_abond<0% del_prev<0% del_taxaType dim_dataClean
+# OTU         1378            0            0           0           11          1367
+# Samples      440            0            0           0            0           440
 ```
 
 ```{r paged.print=FALSE}
 cleanUp2$df_filt # 1377-662-17 = 698
+#         dim_data del_noSample del_abond<0.01% del_prev<0.03% del_taxaType dim_dataClean
+# OTU         1378            0             214            662           11           699
+# Samples      440            0               0              0            0           440
 ```
 
 ```{r}
 # Details of the deleted taxa
 deleted_taxa_sp <- as.vector(tax_table(cleanUp2$deleted_taxa)[, "Species"])
 table(tax_table(cleanUp2$deleted_taxa)[, "Kingdom"])
+  # Archaea  Bacteria Eukaryota 
+  #       9       668         2 
 ```
 
 
@@ -374,22 +407,30 @@ cleanUp2 = phyloseq_CleanUp(physeq_rel_SGB, thresh_abond = thresh_abond, thresh_
 
 ```{r paged.print=FALSE}
 cleanUp1$df_filt
+#         dim_data del_noSample del_abond<0% del_prev<0% del_taxaType dim_dataClean
+# OTU         1873            0            0           0            9          1864
+# Samples      440            0            0           0            0           440
 ```
 
 ```{r paged.print=FALSE}
 cleanUp2$df_filt
+#         dim_data del_noSample del_abond<0.01% del_prev<0.03% del_taxaType dim_dataClean
+# OTU         1873            0             261            924            9           933
+# Samples      440            0               0              0            0           440
 ```
 
 
 ```{r}
 deleted_taxa_SGB <- as.vector(tax_table(cleanUp2$deleted_taxa)[, "Species"])
 table(tax_table(cleanUp2$deleted_taxa)[, "Kingdom"])
+ # Archaea Bacteria 
+ #       9      931 
 ```
 
 ```{r}
-sum(euk %in% deleted_taxa_sp)
-sum(euk %in% deleted_taxa_SGB)
-length(deleted_taxa_sp)
+sum(euk %in% deleted_taxa_sp) # 2
+sum(euk %in% deleted_taxa_SGB) # 0
+length(deleted_taxa_sp) # 679
 sum(deleted_taxa_sp %in% deleted_taxa_SGB) # 677 the same species are deleted in sp and SGB
 ```
 
@@ -436,8 +477,8 @@ Not recommended to renormalize after filtering: https://forum.biobakery.org/t/fi
 physeq_rel_spR = transform_sample_counts(physeq_rel_sp_Clean1, function(x) 100 * x/sum(x))
 physeq_rel_SGBR = transform_sample_counts(physeq_rel_SGB_Clean1, function(x) 100 * x/sum(x))
 
-physeq_rel_sp_Clean2R = transform_sample_counts(physeq_rel_sp_Clean2, function(x) 100 * x/sum(x))
-physeq_rel_SGB_Clean2R = transform_sample_counts(physeq_rel_SGB_Clean2, function(x) 100 * x/sum(x))
+# physeq_rel_sp_Clean2R = transform_sample_counts(physeq_rel_sp_Clean2, function(x) 100 * x/sum(x))
+# physeq_rel_SGB_Clean2R = transform_sample_counts(physeq_rel_SGB_Clean2, function(x) 100 * x/sum(x))
 ```
 
 
@@ -511,10 +552,10 @@ altExp(tse_clean, "Species") <- tse_sp_clean
 
 ```{r}
 save(physeq_rel_spR, physeq_rel_SGBR, tse, 
-     file=paste(dir, "Data_cleaned_ALL_unfiltered.Rdata", sep=""))
+     file=paste(dir1, "Taxonomy/Data_cleaned_ALL_unfiltered.Rdata", sep=""))
 
-save(physeq_rel_sp_Clean2, physeq_rel_SGB_Clean2, physeq_rel_sp_Clean2R, physeq_rel_SGB_Clean2R, tse_clean, 
-     file=paste(dir, "Data_cleaned_ALL_filtered.Rdata", sep=""))
+save(physeq_rel_sp_Clean2, physeq_rel_SGB_Clean2, tse_clean, 
+     file=paste(dir1, "Taxonomy/Data_cleaned_ALL_filtered.Rdata", sep=""))
 ```
 
 

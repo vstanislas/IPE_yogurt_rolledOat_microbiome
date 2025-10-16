@@ -10,14 +10,14 @@ output:
 
 # Loading 
 
-Metadata files created from createMetadataTable.R
+Metadata files created from Metadata/createMetadataTable.R
 
 ```{r}
 library(readxl)
 library(dplyr)
 library(tidyr)
 
-dir <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/2206_JoghurtStudy/Analysis/DataPreparation/BloodMarkers/"
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/DataPreparation/BloodMarkers/"
 ```
 
 
@@ -155,19 +155,9 @@ table(DATA_Boston$Participant_ID, DATA_Boston$Timepoint, useNA = "always")
 ## 1 missing timepoint corresponding to ID033 that we removed earlier
 ```
 
-```{r}
-#to check
-table(data_dup_S$Participant_ID, data_dup_S$Timepoint, useNA = "always")
-```
-```{r}
-#to check
-table(data_dup_P$Participant_ID, data_dup_P$Timepoint, useNA = "always")
-```
-
 
 # Saving
 ```{r}
 save(DATA_Boston, file="BloodData_Boston.Rdata")
-save(data_dup_P, data_dup_S, file="BloodData_Boston_duplicated.Rdata")
 ```
 

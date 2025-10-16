@@ -35,7 +35,7 @@ library(reshape)
 ```
 
 ```{r}
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/Public_repository/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
 
 path_clustering <- paste(dir, "DataAnalysis/Results_Grouped_Analysis/Clustering/", sep="")
 path_results <- paste(dir, "DataAnalysis/Results_Grouped_Analysis/Results_clustering_kmeans_rel_bray/", sep="")

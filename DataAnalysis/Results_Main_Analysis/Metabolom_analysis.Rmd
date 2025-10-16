@@ -34,15 +34,14 @@ library(redres)
 library(effects)
 library(car)
 
-dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
-path_analysis <- paste(dir, "DataAnalysis/Results_Complete_Analysis/", sep="")
 
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+path_analysis <- paste(dir, "DataAnalysis/Results_Main_Analysis/", sep="")
 
-source(file = paste(dir, "Utils.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
-source(file = paste(dir0, "R functions/code_utils.R", sep=""))
+source(file = paste(dir, "R functions/Utils.R", sep=""))
+source(file = paste(dir, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir, "R functions/code_utils.R", sep=""))
 
 cols <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", 
           Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
@@ -81,13 +80,6 @@ kbl(df)%>%
   kable_paper("striped", full_width = F, position = "left") 
 ```
 
-```{r}
-var <- colnames(DATA_wide)[c(3:4,12:19)]
-tbl_summary(DATA_wide[, var], by=Gruppe, missing ="no") %>% #add_p() %>% 
-  gtsummary::as_gt()%>% 
-  gt::tab_header(title = gt::md("Comparisons between the two groups"))
-```
-
 
 
 ```{r}
@@ -118,21 +110,6 @@ for(i in 1:8){
 }
 ``` 
 
-```{r eval=FALSE, fig.height=8, fig.width=8, message=FALSE, warning=FALSE, include=FALSE}
-#qqplot to check normal distribution
-ll_plot <- list()
-ll_plot2 <- list()
-ll_plot3 <- list()
-for(i in 1:8){
-  ll_plot[[i]] <- ggqqplot(DATA_wide[,measures[i]])
-  ll_plot2[[i]] <- ggqqplot(log2(DATA_wide[,measures[i]]))
-  ll_plot3[[i]] <- ggqqplot(sqrt(DATA_wide[,measures[i]]))
-}
-
-wrap_plots(ll_plot, nrow=4)  + plot_layout(guides = "collect") + plot_annotation(title="Raw data")
-wrap_plots(ll_plot2, nrow=4)  + plot_layout(guides = "collect") + plot_annotation(title="Log transformed")
-wrap_plots(ll_plot3, nrow=4)  + plot_layout(guides = "collect") + plot_annotation(title="sqrt transformed")
-``` 
 
 
 ```{r paged.print=FALSE}
@@ -151,6 +128,15 @@ for(i in 1:8){
 }
 
 data.frame(measures, shap, shap_log, shap_psd_log, shap_sqrt)
+#              measures         shap     shap_log shap_psd_log    shap_sqrt
+# 1 Methylbutyric_acid2 4.711859e-18 7.712766e-22 8.255604e-13 4.200205e-04
+# 2         Acetic_acid 5.950772e-08 3.291859e-06 3.291978e-06 3.044447e-02
+# 3        Butyric_acid 3.541571e-14 8.438155e-17 8.834752e-17 2.226244e-01
+# 4       Hexanoic_acid 2.113432e-22 1.888815e-14 1.083219e-15 9.264651e-15
+# 5     Isobutyric_acid 6.511473e-18 1.044187e-10 1.890671e-10 2.046469e-06
+# 6     Isovaleric_acid 2.575904e-18 1.724201e-07 2.255240e-07 4.128361e-06
+# 7      Propionic_acid 6.617865e-14 3.811778e-05 3.813919e-05 2.094209e-03
+# 8        Valeric_acid 1.109376e-12 4.862326e-16 5.386770e-16 4.643904e-03
 ```
 
 
@@ -161,15 +147,6 @@ data.frame(trans)
 ```
 
 ### SCFAs
-```{r fig.height=16, fig.width=12, warning=FALSE}
-ll_plot <- list()
-printMean <- c(rep(T, 3), F, rep(T, 4))
-for(i in 1:8){
-  ll_plot[[i]] <- plot_sample_measure_CO(DATA_wide, measures[i], "", x="Treatment", colorInter = T, print_table=F, trans = trans[i], printMean=printMean[i], line_diff = F) 
-}
-
-wrap_plots(ll_plot, nrow=4)  + plot_layout(guides = "collect") 
-```
 
 
 
@@ -343,6 +320,15 @@ for(i in 1:8){
 }
 
 data.frame(measures, shap, shap_log, shap_psd_log, shap_sqrt)
+#              measures         shap     shap_log shap_psd_log    shap_sqrt
+# 1 Methylbutyric_acid2 1.209058e-14 2.778551e-22 1.538899e-13 1.006943e-01
+# 2         Acetic_acid 7.174755e-08 6.022639e-06 6.022801e-06 1.274926e-02
+# 3        Butyric_acid 3.069579e-14 7.716522e-16 8.093656e-16 1.998496e-01
+# 4       Hexanoic_acid 2.113432e-22 1.888815e-14 1.083219e-15 9.264651e-15
+# 5     Isobutyric_acid 1.667079e-15 2.925885e-11 5.253142e-11 2.244956e-04
+# 6     Isovaleric_acid 9.225688e-17 4.607103e-08 5.998526e-08 9.426451e-05
+# 7      Propionic_acid 6.617865e-14 3.811778e-05 3.813919e-05 2.094209e-03
+# 8        Valeric_acid 1.109376e-12 4.862326e-16 5.386770e-16 4.643904e-03
 ```
 
 ```{r paged.print=FALSE}
@@ -353,242 +339,12 @@ data.frame(trans_filt)
 
 
 
-# Correlation between metabolites
 
-```{r fig.height=6, fig.width=7}
-library(circlize)
-library(ComplexHeatmap)
 
-DATA_wide$sexe_num <- as.numeric(DATA_wide$Geschlecht)
-MB_cor <- cor(DATA_wide[, c(6:8, 12:20)], use="complete.obs", method = "spearman")
-col_fun_div = colorRamp2(c(-1, 1), hcl_palette = "Blue-Red 3") 
-Heatmap(MB_cor, col= col_fun_div, column_title = "Metabolites correlation")
-```
+# Mixed model
 
-```{r fig.height=6, fig.width=7}
-MB_cor <- cor(DATA_wide[, 12:19], use="complete.obs", method = "spearman")
-col_fun_div = colorRamp2(c(-1, 1), hcl_palette = "Blue-Red 3") 
-Heatmap(MB_cor, col= col_fun_div, column_title = "Metabolites correlation")
-```
 
-```{r fig.height=6, fig.width=12, message=FALSE}
-MB_cor_YB <- cor(subset(DATA_wide, Inter_treat=="Before.Yogurt")[, 12:19], use="complete.obs", method = "spearman") 
-MB_cor_YA <- cor(subset(DATA_wide, Inter_treat=="After.Yogurt")[, 12:19], use="complete.obs", method = "spearman") 
-ht1 <- Heatmap(MB_cor_YB, col= col_fun_div, column_title = "Before Yogurt")
-ht2 <- Heatmap(MB_cor_YA, col= col_fun_div, column_title = "After Yogurt", column_order = column_order(ht1))
-
-ht1 + ht2
-```
-
-```{r fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
-MB_cor_YOB <- cor(subset(DATA_wide, Inter_treat=="Before.YogurtOatmeal")[, 12:19], use="complete.obs", method = "spearman") 
-MB_cor_YOA <- cor(subset(DATA_wide, Inter_treat=="After.YogurtOatmeal")[, 12:19], use="complete.obs", method = "spearman") 
-ht3 <- Heatmap(MB_cor_YOB, col= col_fun_div, column_title = "Before Yogurt Oatmeal", column_order = column_order(ht1))
-ht4 <- Heatmap(MB_cor_YOA, col= col_fun_div, column_title = "After Yogurt Oatmeal", column_order = column_order(ht1))
-
-ht3 + ht4
-```
-
-
-```{r fig.height=12, fig.width=10, warning=FALSE}
-measures_ord <- c("Isobutyric_acid", "Isovaleric_acid", "Methylbutyric_acid2", "Valeric_acid",  "Hexanoic_acid", "Propionic_acid", "Butyric_acid", "Acetic_acid")
-
-pplist <- list()
-for(i in 1:8){
-  for(j in 1:8){
-  z <- i + ((j-1)*8)  
-  pplist[[z]] <- plot_pair_measures(DATA_wide, measures_ord[i],  measures_ord[j], subject_name = F, facet_grid = F, scale_log = F)
-  }
-}
-
-# wrap_plots(pplist,  ncol=8) +  plot_layout(guides = "collect") #saved in Correlations_metabolites.tiff
-```
-
-```{r fig.height=12, fig.width=10, warning=FALSE}
-pplist <- list()
-for(i in 1:8){
-  for(j in 1:8){
-  z <- i + ((j-1)*8)  
-  pplist[[z]] <- plot_pair_measures(DATA_wide, measures_ord[i],  measures_ord[j], subject_name = F, scale_log = F)
-  }
-}
-
-# wrap_plots(pplist,  ncol=8) #saved in Correlations_metabolites_Inter.tiff
-```
-
-
-
-
-
-# Our mixed model
-
-## 1st version
-
-```{r eval=FALSE, include=FALSE}
-# # Check covariates
-# lmer1 <- lmer(Valeric_acid ~  Timepoint + Intervention + Alter + Geschlecht + (1|Participant_ID), data=DATA_wide, REML = FALSE)
-# lmer2 <- lmer(Valeric_acid ~   Timepoint + Intervention + Alter + (1|Participant_ID), data=DATA_wide, REML = FALSE)
-# anova(lmer2, lmer1) # Geschlecht can be remove
-# 
-# lmer1 <- lmer(Valeric_acid ~  Timepoint + Intervention + Alter  + (1|Participant_ID), data=DATA_wide, REML = FALSE)
-# lmer2 <- lmer(Valeric_acid ~   Timepoint + Intervention  + (1|Participant_ID), data=DATA_wide, REML = FALSE)
-# anova(lmer2, lmer1) # Alter can be remove
-```
-
-```{r}
-measures <- colnames(DATA_wide)[12:19]
-DF_subs <-  subset_DATA(DATA_wide, measures)
-```
-
-```{r}
-### Model 1
-groupvars <- c("Gruppe", "Timepoint", "Intervention", "(1|Participant_ID)")
-res_After <- combined_results(measures, groupvars, DF=DF_subs$DF_A, compar_var = "Intervention",  savingName = "Model1_After", plot_res=T, path=paste(path_analysis, "ResultsMetabolomic/", sep=""))
-
-### Model 2
-groupvars <- c("Gruppe", "Timepoint", "Intervention", "baseline_diff", "(1|Participant_ID)")
-res_After_full <- combined_results(measures, groupvars, DF=DF_subs$DF_A_full, compar_var = "Intervention", baseline = T,  savingName = "Model2_AfterwBase", plot_res=T, path=paste(path_analysis, "ResultsMetabolomic/", sep=""))
-
-### Model 3-4
-groupvars <- c("Gruppe", "Treatment", "(1|Participant_ID)")
-res_Yogurt  <- combined_results(measures, groupvars, DF=DF_subs$DF_Y, compar_var = "Treatment",  savingName = "Model3_Yogurt", plot_res=T, path=paste(path_analysis, "ResultsMetabolomic/", sep=""))
-res_YogurtOatmeal   <- combined_results(measures, groupvars, DF=DF_subs$DF_YO, compar_var = "Treatment",  savingName = "Model4_YogurtOatmeal", plot_res=T, path=paste(path_analysis, "ResultsMetabolomic/", sep=""))
-```
-
-
-
-## 2nd version
-
-### no transformation
-```{r}
-DF_subs <-  prepare_DATA(DATA_wide, NULL)
-measures_noTrans <- measures
-```
-
-
-```{r paged.print=FALSE}
-groupvars <- c("B", "T", "C1", "C2", "(1|Participant_ID)")
-
-res_After <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF, compar_var = "T", 
-                       savingName = "Model_full", plot_res=T, 
-                       path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_noTrans/", sep=""))
-
-groupvars <- c("B", "P", "(1|Participant_ID)")
-res_Yogurt  <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF_int1, compar_var = "B", 
-                         savingName = "Model_Yogurt", plot_res=T, 
-                         path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_noTrans/", sep=""))
-
-
-res_YogurtOatmeal <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF_int2, compar_var = "B", 
-                               savingName = "Model_YogurtOatmeal", plot_res=T, 
-                               path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_noTrans/", sep=""))
-```
-
-
-
-```{r paged.print=FALSE}
-inf_points_obs <- read.xlsx(file=paste(path_analysis , "ResultsMetabolomic/Rosner_Model_noTrans/Model_full_results.xlsx", sep=""), sheetName="inf_obs_all")
-inf_points_obs$NA. <- NULL
-# inf_points_obs <- res_After[["inf_obs_all"]]
-
-inf_points_obs <- inf_points_obs[order(inf_points_obs$cooksd, decreasing=T),]
-inf_points_obs[1:10,]
-```
-
-```{r paged.print=FALSE}
-inf_points <- read.xlsx(file=paste(path_analysis , "ResultsMetabolomic/Rosner_Model_noTrans/Model_full_results.xlsx", sep=""), sheetName="inf_part_all")
-inf_points$NA. <- NULL
-# inf_points <- res_After[["inf_part_all"]]
-
-inf_points <- inf_points[order(inf_points$cooksd, decreasing=T),]
-inf_points[1:10,]
-```
-
-
-```{r fig.height=12, fig.width=15, warning=FALSE}
-Inf_point <- merge(DATA_wide, inf_points[, c("Participant_ID", "outcome_i")], by=c("Participant_ID"))
-sub <- split(Inf_point, Inf_point$outcome_i)
-sub <- sub[measures_noTrans] #reorder to correspond to trans
-sub[sapply(sub, is.null)] <- NULL # if no outliers detected for one or more measures
-
-ll_plot <- list()
-for(i in seq(length(sub))){
-  ll_plot[[i]] <- plot_outliers_path(sub[[i]], DATA_wide, names(sub[i]), "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], line_diff = T)
-}
-
-wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") 
-
-```
-
-### no transformation + covariate
-
-3 participants (ID071, ID090, ID113) are removed of the analysis as we do not have their BMI information.
-
-```{r}
-### saved in Rosner_Model_noTrans_cov
-# same DF and measures_Trans as defined in previous section
-```
-
-```{r paged.print=FALSE}
-
-groupvars <- c("B", "T", "C1", "C2", "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
-
-res_After <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF, compar_var = "T", 
-                       savingName = "Model_full", plot_res=T, 
-                       path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_noTrans_cov/", sep=""))
-
-groupvars <- c("B", "P","Alter", "BMI", "Geschlecht",  "(1|Participant_ID)")
-res_Yogurt  <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF_int1, compar_var = "B", 
-                         savingName = "Model_Yogurt", plot_res=T, 
-                         path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_noTrans_cov/", sep=""))
-
-
-res_YogurtOatmeal <- run_model(measures_noTrans, groupvars, DF=DF_subs$DF_int2, compar_var = "B", 
-                               savingName = "Model_YogurtOatmeal", plot_res=T, 
-                               path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_noTrans_cov/", sep=""))
-```
-
-
-
-```{r paged.print=FALSE}
-inf_points_obs <- read.xlsx(file=paste(path_analysis , "ResultsMetabolomic/Rosner_Model_noTrans_cov/Model_full_results.xlsx", sep=""), sheetName="inf_obs_all")
-inf_points_obs$NA. <- NULL
-
-# inf_points_obs <- res_After[["inf_obs_all"]]
-inf_points_obs <- inf_points_obs[order(inf_points_obs$cooksd, decreasing=T),]
-inf_points_obs[1:10,]
-```
-
-```{r paged.print=FALSE}
-inf_points <- read.xlsx(file=paste(path_analysis , "ResultsMetabolomic/Rosner_Model_noTrans_cov/Model_full_results.xlsx", sep=""), sheetName="inf_part_all")
-inf_points$NA. <- NULL
-
-# inf_points <- res_After[["inf_part_all"]]
-inf_points <- inf_points[order(inf_points$cooksd, decreasing=T),]
-inf_points[1:10,]
-```
-
-
-
-
-```{r fig.height=12, fig.width=15, warning=FALSE}
-Inf_point <- merge(DATA_wide, inf_points[, c("Participant_ID", "outcome_i")], by=c("Participant_ID"))
-sub <- split(Inf_point, Inf_point$outcome_i)
-sub <- sub[measures_noTrans] #reorder to correspond to trans
-sub[sapply(sub, is.null)] <- NULL # if no outliers detected for one or more measures
-
-ll_plot <- list()
-for(i in seq(length(sub))){
-  ll_plot[[i]] <- plot_outliers_path(sub[[i]], DATA_wide, names(sub[i]), "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], line_diff = T)
-}
-
-wrap_plots(ll_plot, nrow=3)  + plot_layout(guides = "collect") 
-
-```
-
-### transformation
-
-After checking residuals from Rosner_Model_noTrans:
+After checking residuals:
 
 * Acetic_acid: 
   * heteroscedasticity, use box-cox transformation
@@ -620,8 +376,6 @@ After checking residuals from Rosner_Model_noTrans:
 
   
 ```{r paged.print=FALSE}
-### saved in Rosner_Model_Trans_cov
-
 # transformation
 trans_analysis <- c("bc", "bc", "bc", "bc", "bc", "bc", "bc", "bc")
 names(trans_analysis) <- measures
@@ -633,235 +387,9 @@ DF_subs <-  prepare_DATA(DATA_wide, trans_analysis)
 measures_Trans <- sapply(names(trans_analysis), function(x) if(trans_analysis[[x]] !="") paste(x, trans_analysis[[x]], sep="_") else x)
 ```
 
-```{r paged.print=FALSE}
-groupvars <- c("B", "T", "C1", "C2", "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
-
-res_After <- run_model(measures_Trans, groupvars, DF=DF_subs$DF, compar_var = "T", 
-                       savingName = "Model_full", plot_res=T, 
-                       path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans_cov/", sep=""))
-
-groupvars <- c("B", "P", "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
-res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int1, compar_var = "B",
-                         savingName = "Model_Yogurt", plot_res=T,
-                         path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans_cov/", sep=""))
-
-
-res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int2, compar_var = "B",
-                               savingName = "Model_YogurtOatmeal", plot_res=T,
-                               path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans_cov/", sep=""))
-```
-
 
 
 ```{r}
-### newest model saved in lmer_Trans_cov/
-### same results than Rosner_Model_Trans_cov/ but better plots and results presentation
-
-#### Model full
-compar_var = "T"
-DF_work=DF_subs$DF
-compa = "full"
-FE <- c("B", "T", "C1", "C2", "Alter", "BMI", "Geschlecht")
-RE <- "Participant_ID"
-
-#### Model Y
-compar_var = "B"
-DF_work=DF_subs$DF_int1
-compa = "Y"
-FE <- c("B", "P", "Alter", "BMI", "Geschlecht")
-RE <- "Participant_ID"
-
-#### Model YO
-compar_var = "B"
-DF_work=DF_subs$DF_int2
-compa = "YO"
-FE <- c("B", "P", "Alter", "BMI", "Geschlecht")
-RE <- "Participant_ID"
-```
-
-
-
-```{r}
-sig_threshold <- 0.05
-wd0 <- paste(path_analysis, "ResultsMetabolomic/", sep="")
-setwd(wd0)
-
-run_uniMarker_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=DF_work,
-               compar_var=compar_var, var_check=NULL, 
-               savingName=paste("lmer", compa, sep="_"), 
-               sig_threshold=sig_threshold, check_mod=T, save_mod=F,  
-               path=paste("lmer_Trans_cov/", compa, "/", sep=""),
-               verbose=F)
-```
-
-
-
-#### Investigate bimodality in Hexanoic_acid
-```{r}
-DATA_wide_trans <- DF_subs$DF
-```
-
-```{r}
-p1 <- ggplot(DATA_wide_trans, aes(x=log2(Hexanoic_acid))) + geom_histogram(bins=30, color="white")
-p2 <- ggplot(DATA_wide_trans, aes(x=Hexanoic_acid_bc)) + geom_histogram(bins=30, color="white")
-wrap_plots(p1, p2, ncol=1)
-```
-
-
-```{r}
-DATA_wide_trans$Hexa_group <- ifelse(DATA_wide_trans$Hexanoic_acid_bc >= 5, "1", "0")
-```
-
-```{r}
-To_export <- DATA_wide_trans[, c("Participant_ID", "Timepoint", "Hexa_group", "Hexanoic_acid_bc")]
-write.xlsx(To_export, 
-           file="Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/2206_JoghurtStudy/Analysis/DataAnalysis/grouping.xlsx", sheet="Hexanoic")
-```
-
-
-
-```{r}
-ggplot(DATA_wide_trans[-which(is.na(DATA_wide_trans$Hexanoic_acid_bc)),], aes(x=Hexanoic_acid_bc)) + geom_histogram(bins=30, color="white") + facet_wrap(~Hexa_group)
-```
-
-```{r fig.height=32, fig.width=12, warning=FALSE}
-pp <-list()
-for(i in 1:8){
-  
-  ylim <- range(DATA_wide_trans[, measures[i]], na.rm = T)
-  
-  ind_filter <- quote(Hexa_group=="0")
-  p1 <- plot_sample_measure_CO(DATA_wide_trans, measures[i], "Hexa0", x="Treatment", colorInter = T, print_table=F,  trans = trans[i], ind_filter=ind_filter, ylim=ylim) 
-  
-  ind_filter <- quote(Hexa_group=="1")
-  p2 <- plot_sample_measure_CO(DATA_wide_trans,  measures[i], "Hexa1", x="Treatment", colorInter = T, print_table=F,  trans = trans[i], ind_filter=ind_filter, ylim=ylim)
-  
-  
-  pp[[i]] <- wrap_plots(p1, p2, ncol=2)
-  
-}
-
-wrap_plots(pp, ncol=1)
-```
-
-
-```{r fig.height=32, fig.width=12, warning=FALSE}
-pp <-list()
-for(i in 1:8){
-  
-  ylim <- range(DATA_wide_trans[, measures[i]], na.rm = T)
-  
-  ind_filter <- quote(Hexa_group=="0")
-  p1 <- plot_sample_measure_CO(DATA_wide_trans, measures[i], "Hexa0", x="Timepoint", colorInter = T, print_table=F,  trans = trans[i], ind_filter=ind_filter, ylim=ylim) 
-  
-  ind_filter <- quote(Hexa_group=="1")
-  p2 <- plot_sample_measure_CO(DATA_wide_trans,  measures[i], "Hexa1", x="Timepoint", colorInter = T, print_table=F,  trans = trans[i], ind_filter=ind_filter, ylim=ylim)
-  
-  
-  pp[[i]] <- wrap_plots(p1, p2, ncol=2)
-  
-}
-
-wrap_plots(pp, ncol=1)
-```
-
-
-
-
-
-```{r}
-var <- colnames(DATA_wide_trans)[c(4:8,26:34)]
-tbl_summary(DATA_wide_trans[, var], by=Hexa_group, missing ="no") %>% add_p() %>% 
-  gtsummary::as_gt()
-```
-
-
-```{r}
-DATA_wide_trans$Hexanoic_acid_bc <- NULL
-DATA_wide_trans$Methylbutyric_acid2_bc <- NULL
-DATA_wide_trans$Acetic_acid_bc <- NULL
-DATA_wide_trans$Butyric_acid_bc <- NULL
-DATA_wide_trans$Isobutyric_acid_bc <- NULL
-DATA_wide_trans$Isovaleric_acid_bc <- NULL
-DATA_wide_trans$Propionic_acid_bc <- NULL
-DATA_wide_trans$Valeric_acid_bc <- NULL
-
-Hexa_sub1 <- subset(DATA_wide_trans, Hexa_group=="1")
-Hexa_sub0 <- subset(DATA_wide_trans, Hexa_group=="0")
-
-# trans_hexa <- c("bc") # we only transform Hexanoic_acid but keep the previous transformation stored in DATA_wide_trans for the other SCFAs 
-# names(trans_hexa) <- "Hexanoic_acid" 
-DF_subs_Hexa1 <- prepare_DATA(Hexa_sub1, trans_analysis)
-DF_subs_Hexa0 <- prepare_DATA(Hexa_sub0, trans_analysis)
-```
-
-
-
-```{r paged.print=FALSE}
-groupvars <- c("B", "T", "C1", "C2", "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
-
-res_After <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa1$DF, compar_var = "T",
-                       savingName = "Model_full_Hexa1", plot_res=T,
-                       path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans_cov/Hexa_sub/", sep=""))
-
-
-res_After <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa0$DF, compar_var = "T",
-                       savingName = "Model_full_Hexa0", plot_res=T,
-                       path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans_cov/Hexa_sub/", sep=""))
-
-
-groupvars <- c("B", "P", "Alter", "BMI", "Geschlecht", "(1|Participant_ID)")
-res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa1$DF_int1, compar_var = "B",
-                         savingName = "Model_Yogurt_Hexa1", plot_res=T,
-                         path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans_cov/Hexa_sub/", sep=""))
-
-res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa0$DF_int1, compar_var = "B",
-                         savingName = "Model_Yogurt_Hexa0", plot_res=T,
-                         path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans_cov/Hexa_sub/", sep=""))
-
-res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa1$DF_int2, compar_var = "B",
-                               savingName = "Model_YogurtOatmeal_Hexa1", plot_res=T,
-                               path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans_cov/Hexa_sub/", sep=""))
-
-res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa0$DF_int2, compar_var = "B",
-                               savingName = "Model_YogurtOatmeal_Hexa0", plot_res=T,
-                               path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans_cov/Hexa_sub/", sep=""))
-```
-
-
-
-
-### transformation no covariates
-
-```{r}
-### saved in Rosner_Model_Trans
-# same DF and measures_Trans as defined in previous section (before section on Hexanoic_acid bimodality)
-```
-
-```{r paged.print=FALSE}
-
-groupvars <- c("B", "T", "C1", "C2", "(1|Participant_ID)")
-
-res_After <- run_model(measures_Trans, groupvars, DF=DF_subs$DF, compar_var = "T", 
-                       savingName = "Model_full", plot_res=T, 
-                       path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans/", sep=""))
-
-groupvars <- c("B", "P", "(1|Participant_ID)")
-res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int1, compar_var = "B",
-                         savingName = "Model_Yogurt", plot_res=T,
-                         path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans/", sep=""))
-
-
-res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_subs$DF_int2, compar_var = "B",
-                               savingName = "Model_YogurtOatmeal", plot_res=T,
-                               path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans/", sep=""))
-```
-
-
-```{r}
-### newest model saved in lmer_Trans/
-### same results than Rosner_Model_Trans/ but better plots and results presentation
-
 #### Model full
 compar_var = "T"
 DF_work=DF_subs$DF
@@ -896,211 +424,3 @@ run_uniMarker_model(measures_Trans, package="lme4", counts=F, FE=FE, RE=RE, DF=D
                path=paste("lmer_Trans/", compa, "/", sep=""),
                verbose=F)
 ```
-
-
-
-#### bimodality in Hexanoic_acid
-
-```{r}
-DATA_wide_trans$Hexanoic_acid_bc <- NULL
-DATA_wide_trans$Methylbutyric_acid2_bc <- NULL
-DATA_wide_trans$Acetic_acid_bc <- NULL
-DATA_wide_trans$Butyric_acid_bc <- NULL
-DATA_wide_trans$Isobutyric_acid_bc <- NULL
-DATA_wide_trans$Isovaleric_acid_bc <- NULL
-DATA_wide_trans$Propionic_acid_bc <- NULL
-DATA_wide_trans$Valeric_acid_bc <- NULL
-
-Hexa_sub1 <- subset(DATA_wide_trans, Hexa_group=="1")
-Hexa_sub0 <- subset(DATA_wide_trans, Hexa_group=="0")
-
-# trans_hexa <- c("bc") # we only transform Hexanoic_acid but keep the previous transformation stored in DATA_wide_trans for the other SCFAs 
-# names(trans_hexa) <- "Hexanoic_acid" 
-DF_subs_Hexa1 <- prepare_DATA(Hexa_sub1, trans_analysis)
-DF_subs_Hexa0 <- prepare_DATA(Hexa_sub0, trans_analysis)
-```
-
-
-
-```{r paged.print=FALSE}
-groupvars <- c("B", "T", "C1", "C2", "(1|Participant_ID)")
-
-res_After <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa1$DF, compar_var = "T",
-                       savingName = "Model_full_Hexa1", plot_res=T,
-                       path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans/Hexa_sub/", sep=""))
-
-
-res_After <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa0$DF, compar_var = "T",
-                       savingName = "Model_full_Hexa0", plot_res=T,
-                       path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans/Hexa_sub/", sep=""))
-
-
-groupvars <- c("B", "P", "(1|Participant_ID)")
-res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa1$DF_int1, compar_var = "B",
-                         savingName = "Model_Yogurt_Hexa1", plot_res=T,
-                         path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans/Hexa_sub/", sep=""))
-
-res_Yogurt  <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa0$DF_int1, compar_var = "B",
-                         savingName = "Model_Yogurt_Hexa0", plot_res=T,
-                         path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans/Hexa_sub/", sep=""))
-
-res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa1$DF_int2, compar_var = "B",
-                               savingName = "Model_YogurtOatmeal_Hexa1", plot_res=T,
-                               path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans/Hexa_sub/", sep=""))
-
-res_YogurtOatmeal <- run_model(measures_Trans, groupvars, DF=DF_subs_Hexa0$DF_int2, compar_var = "B",
-                               savingName = "Model_YogurtOatmeal_Hexa0", plot_res=T,
-                               path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_Trans/Hexa_sub/", sep=""))
-```
-
-
-
-### Multiple outliers filtered
-
-```{r}
-# WE DID NOT KEEP THIS ANALYSIS
-
-# DF_filt_subs <-  prepare_DATA(data_filt, trans_filt)
-# measures2 <- sapply(names(trans_filt), function(x) if(trans_filt[[x]] !="") paste(x, trans_filt[[x]], sep="_") else x)
-```
-
-```{r}
-# groupvars <- c("B", "T", "C1", "C2", "(1|Participant_ID)")
-# 
-# res_After <- run_model(measures2, groupvars, DF=DF_filt_subs$DF, compar_var = "T", 
-#                        savingName = "Model_full", plot_res=T, 
-#                        path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_filt/", sep=""))
-# 
-# groupvars <- c("B", "P", "(1|Participant_ID)")
-# res_Yogurt  <- run_model(measures2, groupvars, DF=DF_filt_subs$DF_int1, compar_var = "B", 
-#                          savingName = "Model_Yogurt", plot_res=T, 
-#                          path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_filt/", sep=""))
-# 
-# 
-# res_YogurtOatmeal <- run_model(measures2, groupvars, DF=DF_filt_subs$DF_int2, compar_var = "B", 
-#                                savingName = "Model_YogurtOatmeal", plot_res=T, 
-#                                path=paste(path_analysis, "ResultsMetabolomic/Rosner_Model_filt/", sep=""))
-```
-
-
-
-
-
-
-# Participants differences in response
-
-
-```{r fig.height=32, fig.width=12, warning=FALSE}
-## Separate participant increasing during washout from people decreasing during washout
-pp <-list()
-for(i in 1:8){
-  ind_filter <- quote(Timepoint=="T2"& Diff=="Increase")
-  
-  ylim <- range(DATA_wide[, measures[i]], na.rm = T)
-  
-  p1 <- plot_sample_measure_CO(DATA_wide, measures[i], "", x="Timepoint", colorInter = T, print_table=F,  trans = trans[i], ind_filter=ind_filter, ylim=ylim) 
-  
-  ind_filter <- quote(Timepoint=="T2"& Diff=="Decrease")
-  p2 <- plot_sample_measure_CO(DATA_wide,  measures[i], "", x="Timepoint", colorInter = T, print_table=F,  trans = trans[i], ind_filter=ind_filter, ylim=ylim)
-  
-  
-  pp[[i]] <- wrap_plots(p1, p2, ncol=2)
-  
-}
-
-wrap_plots(pp, ncol=1)
-```
-
-
-
-
-```{r message=FALSE}
-myCol <- brewer.pal(8, "Pastel2")
-names(myCol) <- measures
-DF <- DATA_wide
-
-ind_filter <- list()
-for(i in 1:8){
-  DF_F <- computeDiff(DF, "Timepoint", measures[i])
-  ind_filter[[i]] <- as.character(subset(DF_F, Timepoint=="T2"& Diff=="Increase")$Participant_ID)
-}
-names(ind_filter) <- measures
-
-plt <- venn.diagram(x = ind_filter[1:5],
-                    disable.logging=T,
-                    category.names = measures[1:5],
-                    lty = 'blank', fill = myCol[1:5], # circle
-                    fontface = "bold", fontfamily = "sans", # Numbers
-                    cat.fontface = "bold", cat.fontfamily = "sans", # Set names 
-                    margin =0.3,filename=NULL)
-
-plt2 <- venn.diagram(x = ind_filter[c(6,7,3,4,8)], 
-                     disable.logging=T,
-                    category.names = measures[c(6,7,3,4,8)],
-                    lty = 'blank', fill = myCol[c(6,7,3,4,8)], # circle
-                    fontface = "bold", fontfamily = "sans", # Numbers
-                    cat.fontface = "bold", cat.fontfamily = "sans", # Set names
-                    margin =0.3, filename=NULL)
-
-
-```
-
-```{r fig.height=6, fig.width=7}
-grid.newpage()
-grid::grid.draw(plt)
-grid.newpage()
-grid::grid.draw(plt2)
-```
-
-
-```{r}
-length(Reduce(intersect,ind_filter)) # 14 # number of individuals find increasing during wahsout for all metabolite
-```
-
-
-
-
-```{r}
-# Ven diagram depending on correlation
-plt <- venn.diagram(x = ind_filter[c("Isobutyric_acid", "Isovaleric_acid", "Methylbutyric_acid2")], 
-                    disable.logging=T,
-                    category.names = c("Isobutyric_acid", "Isovaleric_acid", "Methylbutyric_acid2"),
-                    lty = 'blank', 
-                    fill = myCol[c("Isobutyric_acid", "Isovaleric_acid", "Methylbutyric_acid2")], # circle
-                    fontface = "bold", fontfamily = "sans", # Numbers
-                    cat.fontface = "bold", cat.fontfamily = "sans", # Set names
-                    margin =0.3, filename=NULL)
-
-plt2 <- venn.diagram(x = ind_filter[c("Propionic_acid", "Butyric_acid", "Acetic_acid")], 
-                    disable.logging=T,
-                    category.names = c("Propionic_acid", "Butyric_acid", "Acetic_acid"),
-                    lty = 'blank', 
-                    fill = myCol[c("Propionic_acid", "Butyric_acid", "Acetic_acid")], # circle
-                    fontface = "bold", fontfamily = "sans", # Numbers
-                    cat.fontface = "bold", cat.fontfamily = "sans", # Set names
-                    margin =0.3, filename=NULL)
-
-# 
-plt3 <- venn.diagram(x = ind_filter[c("Isobutyric_acid", "Butyric_acid", "Hexanoic_acid")], 
-                    disable.logging=T,
-                    category.names = c("Isobutyric_acid", "Butyric_acid", "Hexanoic_acid"),
-                    lty = 'blank', 
-                    fill = myCol[c("Isobutyric_acid", "Butyric_acid", "Hexanoic_acid")], # circle
-                    fontface = "bold", fontfamily = "sans", # Numbers
-                    cat.fontface = "bold", cat.fontfamily = "sans", # Set names
-                    margin =0.3, filename=NULL)
-```
-
-
-```{r fig.height=4, fig.width=5}
-grid.newpage()
-grid::grid.draw(plt)
-
-grid.newpage()
-grid::grid.draw(plt2)
-
-grid.newpage()
-grid::grid.draw(plt3)
-```
-
-

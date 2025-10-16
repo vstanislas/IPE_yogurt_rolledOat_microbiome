@@ -49,7 +49,7 @@ library(tictoc)
 
 
 ```{r}
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/Public_repository/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
 path_analysis <- paste(dir, "DataAnalysis/Results_Main_Analysis/ResultsFunctional/On_pathways_AllSamples/", sep="")
 
  
@@ -73,7 +73,7 @@ load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
 
 
 ```{r message=FALSE}
-load(paste(dir, "DataPreparation/Microbiome_DATA_Kun_Huang/Functional/TSE_Physeq_Pathway.Rdata", sep=""))
+load(paste(dir, "DataPreparation/Microbiome/Functional/TSE_Physeq_Pathway.Rdata", sep=""))
 
 tse0 <- tse_pathway  # 606 440
 physeq0 <- physeq_pathway # 606 440

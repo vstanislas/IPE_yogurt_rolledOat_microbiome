@@ -9,7 +9,7 @@ library(tidyr)
 ################################
 #     KEGG table               #
 ################################
-# Only yoghurt samples and JH144 already present
+# Only yogurt samples and JH144 already present
 KEGG_JH <- read.delim("ko_merged_440samples_1cpm_10prev.tsv", comment.char = "")
 colnames(KEGG_JH)[1] <- "KEGG"
 
@@ -173,40 +173,6 @@ save(kegg_go0, go_data, ko_data, info_ko, info_go, file="KEGG_GO_annotation.Rdat
 ######################################
 #     Gene annotation                #
 ######################################
-## REDUCED RPK TABLE: genefamilies_exp86_440_relab_unstratified_10prev_0001relab.tsv
-# Only yoghurt samples and JH144 already present
-genes_JH <- read.delim("genefamilies_exp86_440_relab_unstratified_10prev_0001relab.tsv", comment.char = "")
-colnames(genes_JH)[1] <- "Genes"
-
-## separate genes info 
-genes_JH <- separate(genes_JH, c("Genes", "Descr"), col="Genes", sep=":")
-dim(genes_JH) # 946461   
-rs <- rowSums(genes_JH[, 4:ncol(genes_JH)], na.rm =T) 
-
-## remove empty rows (no empty rows)
-which(rs==0) # integer(0)
-
-save(genes_JH, file="JH_946461genes_RPK.Rdata")
-
-
-
-## REDUCED CPM TABLE: genefamilies_exp86_440_cpm_unstratified_10prev.tsv
-# Only yoghurt samples and JH144 already present
-genes_JH <- read.delim("genefamilies_exp86_440_cpm_unstratified_10prev.tsv", comment.char = "")
-colnames(genes_JH)[1] <- "Genes"
-
-## separate genes info 
-genes_JH <- separate_wider_delim(genes_JH,  cols="Genes", delim=": ", names=c("Genes", "Descr"), too_few = "align_start", too_many = "merge")
-genes_JH <- as.data.frame(genes_JH)
-dim(genes_JH) # 946461   
-rs <- rowSums(genes_JH[, 3:ncol(genes_JH)], na.rm =T) 
-
-## remove empty rows (no empty rows)
-which(rs==0) # integer(0)
-
-save(genes_JH, file="JH_946461genes_CPM.Rdata")
-
-
 
 ## REDUCED CPM TABLE (with additionaly CPM>1): genefamilies_exp86_440_cpm_unstratified_10prev_1cpm.tsv
 # Only yoghurt samples and JH144 already present
@@ -224,100 +190,17 @@ which(rs==0) # integer(0)
 
 save(genes_JH, file="JH_191601genes_CPM.Rdata")
 
+
+
+
 ######################################
-#             Coverage               #
-######################################
-coverage <- read.delim("Merged_data_Joghurt_Covid/pathway_coverage_all_704_samples.tsv",  comment.char = "")
-colnames(coverage)[1] <- "Pathway"
-
-## YOGHURT STUDY
-id_JH <- grepl("JH", colnames(coverage), fixed = TRUE)
-id_JH[1] <- TRUE
-coverage_JH <- coverage[, id_JH]
-coverage_JH <- dplyr::rename(coverage_JH, JH277_Coverage=Ext_86_JH277_Coverage)
-
-## add the missing sample JH144
-coverage_JH144 <- read.delim("JH144/JH144_pathcoverage.tsv",  comment.char = "")
-colnames(coverage_JH144)[1] <- "Pathway"
-coverage_JH_full <- merge(coverage_JH, coverage_JH144, by="Pathway", sort=T, all=T)
-dim(coverage_JH_full) - dim(coverage_JH) # 0  1 (0 new pathway, 1 new sample)
-
-## reorder samples
-n <- ncol(coverage_JH_full)
-coverage_JH_full <- coverage_JH_full[, order(colnames(coverage_JH_full))]
-coverage_JH_full <- coverage_JH_full[, c(n, 1:(n-1))]
-
-# CHECK everything correct
-# rownames(coverage_JH) <- coverage_JH$Pathway
-# coverage_JH <- coverage_JH[coverage_JH_full$Pathway,]
-# rownames(coverage_JH) <- rownames(coverage_JH_full) <- NULL
-# identical(coverage_JH, coverage_JH_full[,-145])
-# 
-# coverage_JH144_2 <- coverage_JH_full[,c(1, 145), drop = FALSE]
-# rownames(coverage_JH144_2) <- coverage_JH144_2$Pathway
-# coverage_JH144_2 <- coverage_JH144_2[coverage_JH144$Pathway, , drop = FALSE]
-# rownames(coverage_JH144) <- rownames(coverage_JH144_2) <-NULL
-# identical(coverage_JH144, coverage_JH144_2)
-
-## separate pathway info in categories
-coverage_JH_full <- separate(coverage_JH_full, c("Pathway", "Taxonomy"), col="Pathway", sep="\\|")
-coverage_JH_full <- separate(coverage_JH_full, c("Pathway", "Descr"), col="Pathway", sep=":")
-coverage_JH <- coverage_JH_full
-
-## remove empty rows
-dim(coverage_JH) # 27630   
-rs <- rowSums(coverage_JH[, 4:ncol(coverage_JH)], na.rm =T) 
-# ess <- coverage_JH[which(rs==0), ]
-# dim(ess) # 5185  
-# sum(ess[, 4:ncol(ess)], na.rm=T) # 0
-# sum(coverage_JH[, 4:ncol(coverage_JH)], na.rm=T) #  462035.7
-coverage_JH <- coverage_JH[which(rs>0), ] 
-# sum(coverage_JH[, 4:ncol(coverage_JH)], na.rm=T) # 462035.7
-# dim(coverage_JH) # 22445      
-
-save(coverage_JH, file="JH_coverage.Rdata")
-
-
-#######################
 #             Pathway                #
 ######################################
-pathway <- read.delim("Merged_data_Joghurt_Covid/pathways_all_704_samples_cpm.tsv",  comment.char = "")
-colnames(pathway)[1] <- "Pathway"
-
-## YOGHURT STUDY
-id_JH <- grepl("JH", colnames(pathway), fixed = TRUE)
-id_JH[1] <- TRUE
-pathway_JH <- pathway[, id_JH]
-pathway_JH <- dplyr::rename(pathway_JH, JH277_Abundance.CPM=Ext_86_JH277_Abundance.CPM)
-
-## add the missing sample JH144
-pathway_JH144 <- read.delim("JH144/JH144_pathabundance_cpm.tsv",  comment.char = "")
-colnames(pathway_JH144)[1] <- "Pathway"
-pathway_JH_full <- merge(pathway_JH, pathway_JH144, by="Pathway", sort=F, all=T)
-dim(pathway_JH_full) - dim(pathway_JH) # 0 1 ( 0 new pathway, 1 new sample)
-
-## reorder samples
-n <- ncol(pathway_JH_full)
-pathway_JH_full <- pathway_JH_full[, order(colnames(pathway_JH_full))]
-pathway_JH_full <- pathway_JH_full[, c(n, 1:(n-1))]
-
-
-# CHECK everything correct
-# rownames(pathway_JH) <- pathway_JH$Pathway
-# pathway_JH <- pathway_JH[pathway_JH_full$Pathway,]
-# rownames(pathway_JH) <- rownames(pathway_JH_full) <- NULL
-# identical(pathway_JH, pathway_JH_full[,-145])
-# 
-# pathway_JH144_2 <- pathway_JH_full[,c(1, 145), drop = FALSE]
-# rownames(pathway_JH144_2) <- pathway_JH144_2$Pathway
-# pathway_JH144_2 <- pathway_JH144_2[pathway_JH144$Pathway, , drop = FALSE]
-# rownames(pathway_JH144) <- rownames(pathway_JH144_2) <-NULL
-# identical(pathway_JH144, pathway_JH144_2)
+pathway_JH <- read.delim("pathways_440samples_cpm.tsv",  comment.char = "")
 
 ## separate pathway info in categories
-pathway_JH_full <- separate(pathway_JH_full, c("Pathway", "Taxonomy"), col="Pathway", sep="\\|")
-pathway_JH_full <- separate(pathway_JH_full, c("Pathway", "Descr"), col="Pathway", sep=":")
-pathway_JH <- pathway_JH_full
+pathway_JH <- separate(pathway_JH, c("Pathway", "Taxonomy"), col="Pathway", sep="\\|")
+pathway_JH <- separate(pathway_JH, c("Pathway", "Descr"), col="Pathway", sep=":")
 
 
 ## remove empty rows
@@ -333,63 +216,4 @@ pathway_JH <- pathway_JH[which(rs>0), ]
 
 save(pathway_JH, file="JH_pathway.Rdata")
 
-
-
-
-######################################
-#        Unpacked Pathway            #
-######################################
-unpck_pathway <- read.delim("Merged_data_Joghurt_Covid/unpacked_pathways_all_704_samples_cpm.tsv",  comment.char = "")
-colnames(unpck_pathway)[1] <- "Pathway"
-
-## YOGHURT STUDY
-id_JH <- grepl("JH", colnames(unpck_pathway), fixed = TRUE)
-id_JH[1] <- TRUE
-unpck_pathway_JH <- unpck_pathway[, id_JH]
-unpck_pathway_JH <- dplyr::rename(unpck_pathway_JH, JH277_Abundance.CPM=Ext_86_JH277_Abundance.CPM)
-
-## add the missing sample JH144
-unpck_pathway_JH144 <- read.delim("JH144/JH144_pathabundance_cpm_unpacked.tsv",  comment.char = "")
-colnames(unpck_pathway_JH144)[1] <- "Pathway"
-unpck_pathway_JH_full <- merge(unpck_pathway_JH, unpck_pathway_JH144, by="Pathway", sort=T, all=T)
-dim(unpck_pathway_JH_full) - dim(unpck_pathway_JH) # 39  1 (39 new pathway, 1 new sample)
-
-## reorder samples
-n <- ncol(unpck_pathway_JH_full)
-unpck_pathway_JH_full <- unpck_pathway_JH_full[, order(colnames(unpck_pathway_JH_full))]
-unpck_pathway_JH_full <- unpck_pathway_JH_full[, c(n, 1:(n-1))]
-
-# CHECK everything correct
-JH144_pathways <- unpck_pathway_JH_full$Pathway[!(unpck_pathway_JH_full$Pathway %in% unpck_pathway_JH$Pathway)]
-unpck_pathway_JH_full_toCheck <- subset(unpck_pathway_JH_full, !(Pathway %in% JH144_pathways))
-rownames(unpck_pathway_JH) <- unpck_pathway_JH$Pathway
-unpck_pathway_JH <- unpck_pathway_JH[unpck_pathway_JH_full_toCheck$Pathway,]
-rownames(unpck_pathway_JH) <- rownames(unpck_pathway_JH_full_toCheck) <- NULL
-identical(unpck_pathway_JH, unpck_pathway_JH_full_toCheck[,-145])
-
-unpck_pathway_JH144_2 <- unpck_pathway_JH_full[,c(1, 145), drop = FALSE]
-rownames(unpck_pathway_JH144_2) <- unpck_pathway_JH144_2$Pathway
-unpck_pathway_JH144_2 <- unpck_pathway_JH144_2[unpck_pathway_JH144$Pathway, , drop = FALSE]
-rownames(unpck_pathway_JH144) <- rownames(unpck_pathway_JH144_2) <-NULL
-identical(unpck_pathway_JH144, unpck_pathway_JH144_2)
-
-## separate pathway info in categories
-unpck_pathway_JH_full <- separate(unpck_pathway_JH_full, c("Pathway", "Taxonomy", "Uniref"), 
-                                  col="Pathway", sep="\\|")
-unpck_pathway_JH_full <- separate(unpck_pathway_JH_full, c("Pathway", "Descr"), 
-                                  col="Pathway", sep=":")
-unpck_pathway_JH <- unpck_pathway_JH_full
-
-## remove empty rows
-dim(unpck_pathway_JH) #  1355931     444
-rs <- rowSums(unpck_pathway_JH[, 5:ncol(unpck_pathway_JH)], na.rm =T) 
-ess <- unpck_pathway_JH[which(rs==0), ]
-dim(ess) #  130259    444
-sum(ess[, 5:ncol(ess)], na.rm=T) # 0
-sum(unpck_pathway_JH[, 5:ncol(unpck_pathway_JH)], na.rm=T) #  772533119
-unpck_pathway_JH <- unpck_pathway_JH[which(rs>0), ] 
-sum(unpck_pathway_JH[, 5:ncol(unpck_pathway_JH)], na.rm=T) # 772533119
-dim(unpck_pathway_JH) # 1225672     444
-
-save(unpck_pathway_JH , file="JH_unpck_pathway.Rdata")
 

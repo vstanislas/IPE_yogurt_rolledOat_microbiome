@@ -49,7 +49,7 @@ library(tictoc)
 
 
 ```{r}
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/Public_repository/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
 path_analysis <- paste(dir, "DataAnalysis/Results_Main_Analysis/ResultsTaxonomy/", sep="")
 
  
@@ -58,7 +58,7 @@ source(file = paste(dir, "R functions/Utils.R", sep=""))
 source(file = paste(dir, "R functions/Utils_metagenomics.R", sep=""))
 source(file = paste(dir, "R functions/Utils_longitudinal.R", sep=""))
 source(file = paste(dir, "R functions/Utils_crossOver.R", sep=""))
-# source(file = paste(dir, "R functions/code_utils.R", sep=""))
+source(file = paste(dir, "R functions/code_utils.R", sep=""))
 ```
 
 
@@ -73,8 +73,8 @@ load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
 # Data preparation
 
 ```{r message=FALSE}
-load(paste(dir, "DataPreparation/Microbiome_DATA_Kun_Huang/Taxonomy/Data_cleaned_ALL_unfiltered.Rdata", sep=""))
-load(paste(dir, "DataPreparation/Microbiome_DATA_Kun_Huang/Taxonomy/Data_cleaned_ALL_filtered.Rdata", sep=""))
+load(paste(dir, "DataPreparation/Microbiome/Taxonomy/Data_cleaned_ALL_unfiltered.Rdata", sep=""))
+load(paste(dir, "DataPreparation/Microbiome/Taxonomy/Data_cleaned_ALL_filtered.Rdata", sep=""))
 
 # Define working objects
 tse_SGB0 <- tse
@@ -84,25 +84,21 @@ tse0 <- altExp(tse,"Species")  # 1366 440
 physeq0 <- physeq_rel_spR
 
 
-
 tse_SGB_sub0 <- tse_clean
-physeq_SGB_sub0 <- physeq_rel_SGB_Clean2R
 
 tse_sub0 <- altExp(tse_clean,"Species") # 698 440  
-physeq_sub0 <- physeq_rel_sp_Clean2R
 ```
 
 ```{r}
 # Remove 2 samples from ID016 not correctly prepared by the participant
 tse_SGB <- tse_SGB0[, c(!(tse_SGB0$Sample_ID  %in% c("JH379", "JH380")))]
 tse <- tse0[, c(!(tse0$Sample_ID  %in% c("JH379", "JH380")))]
+
 tse_SGB_sub <- tse_SGB_sub0[, c(!(tse_SGB_sub0$Sample_ID  %in% c("JH379", "JH380")))]
 tse_sub <- tse_sub0[, c(!(tse_sub0$Sample_ID  %in% c("JH379", "JH380")))]
 
 physeq_SGB <- ps_filter(physeq_SGB0, !(Sample_ID %in% c("JH379", "JH380")))
 physeq <- ps_filter(physeq0, !(Sample_ID %in% c("JH379", "JH380")))
-physeq_SGB_sub <- ps_filter(physeq_SGB_sub0, !(Sample_ID %in% c("JH379", "JH380")))
-physeq_sub <- ps_filter(physeq_sub0, !(Sample_ID %in% c("JH379", "JH380")))
 ```
 
 
@@ -111,11 +107,6 @@ physeq_sub <- ps_filter(physeq_sub0, !(Sample_ID %in% c("JH379", "JH380")))
 physeq_SGB_noFact <-  physeq_SGB
 sample_data(physeq_SGB_noFact)$Inter_treat <- as.character(sample_data(physeq_SGB_noFact)$Inter_treat )
 sample_data(physeq_SGB_noFact)$Inter_treat <- as.factor(sample_data(physeq_SGB_noFact)$Inter_treat )
-
-
-physeq_SGB_sub_noFact <-  physeq_SGB_sub
-sample_data(physeq_SGB_sub_noFact)$Inter_treat <- as.character(sample_data(physeq_SGB_sub_noFact)$Inter_treat )
-sample_data(physeq_SGB_sub_noFact)$Inter_treat <- as.factor(sample_data(physeq_SGB_sub_noFact)$Inter_treat )
 ```
 
 

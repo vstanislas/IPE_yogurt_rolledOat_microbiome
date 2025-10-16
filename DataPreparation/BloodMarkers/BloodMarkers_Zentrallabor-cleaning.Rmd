@@ -10,14 +10,14 @@ output:
 
 # Loading 
 
-Metadata files created from createMetadataTable.R
+Metadata files created from Metadata/createMetadataTable.R
 
 ```{r}
 library(readxl)
 library(dplyr)
 library(tidyr)
 
-dir <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/2206_JoghurtStudy/Analysis/DataPreparation/BloodMarkers/"
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/DataPreparation/BloodMarkers/"
 ```
 
 
@@ -78,14 +78,9 @@ data <- subset(data, Probe == paste("Probe ", Probe_dup, sep="") & Timepoint!="T
 table(data$Participant_ID, data$Timepoint, useNA = "always")
 ```
 
-```{r}
-#to check
-table(data_duplicated$Participant_ID, data_duplicated$Timepoint, useNA = "always")
-```
 
 # Saving
 ```{r}
 save(data, file="BloodData_Zentrallabor.Rdata")
-save(data_duplicated, file="BloodData_Zentrallabor_duplicated.Rdata")
 ```
 

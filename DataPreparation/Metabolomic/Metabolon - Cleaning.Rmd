@@ -16,27 +16,15 @@ library(dplyr)
 library(tidyr)
 library(kableExtra)
 
-dir <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/2206_JoghurtStudy/Analysis/DataPreparation/Metabolomic/Metabolon DATA/"
-source("Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/2206_JoghurtStudy/Analysis/Utils.R")
-  
-# dir <- "/Users/vstanislas/Work/IPE-Freiburg/Projects/2206_JoghurtStudy/Analysis/DataPreparation/Metabolomic/Metabolon DATA/"
-# source("/Users/vstanislas/Work/IPE-Freiburg/Projects/2206_JoghurtStudy/Analysis/Utils.R")
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/DataPreparation/Metabolomic/"
 
+source(file = "GitHub_repository/IPE_yogurt_rolledOat_microbiome/R functions/Utils.R")
 
 cols <- c(After.Yogurt="#7570B3", After.YogurtOatmeal="#D95F02", 
           Before.Yogurt="#AAA8C5", Before.YogurtOatmeal="#DBB394")
 cols_Inter_treat <- cols
 ```
 
-
-```{r eval=FALSE, include=FALSE}
-# tt <- read.table("C:/Users/stanisla/Downloads/share_Ext_086-Freiburg-Oat_Yogurt_study/share_Ext_086-Freiburg-Oat_Yogurt_study/MappingFile.txt", header= T)
-# tt <- read.table("/Users/vstanislas/Work/IPE-Freiburg/Projects/2206_JoghurtStudy/Analysis/Microbiome DATA/MappingFile.txt", header= T)
-# 
-# tt <- tt[, c(2:7,9,10)]
-# meta <- subset(metadata, Number==1)[, c(1:3, 5:9)]
-# rownames(meta) <- NULL
-```
 
 ```{r}
 ### METADATA
@@ -68,7 +56,7 @@ metadata$Intervention <- as.factor(metadata$Intervention)
 data <- read_excel(paste(dir, "FREI-0301-21TASA CDT.xlsx", sep=""), sheet=1)
 data <- as.data.frame(data)
 
-# Remove unecessary variables
+# Remove unnecessary variables
 # table(data$`Client Matrix`) # Only Feces
 # table(data$Unit) # Only µg/g
 data <- data[, c(2, 4:5, 7:9)]
@@ -135,13 +123,6 @@ DATA_repli <- subset(data_merged, Number==2)
 DATA_wide <- reshape2::dcast(DATA, Sample_ID + Participant_ID + Timepoint + Gruppe + Geschlecht + Alter + BMI + BMI_var + Treatment + Intervention + Inter_treat ~ Analyte, value.var = "Results")
 colnames(DATA_wide)[12:19] <- gsub(" ", "_", colnames(DATA_wide)[12:19] ) 
 colnames(DATA_wide)[12] <- "Methylbutyric_acid2"
-
-## for now only replicates are in DATA_repli
-## Need to add the corresponding original samples
-DATA_repli_wide <- reshape2::dcast(DATA_repli, Sample_ID + Participant_ID + Timepoint + Gruppe + Geschlecht + Alter + BMI + BMI_var + Treatment + Intervention + Inter_treat ~ Analyte, value.var = "Results")
-colnames(DATA_repli_wide)[12:19] <- gsub(" ", "_", colnames(DATA_repli_wide)[12:19] ) 
-colnames(DATA_repli_wide)[12] <- "Methylbutyric_acid2"
-DATA_repli_wide <- droplevels(DATA_repli_wide)
 ```
 
 ```{r}
@@ -153,15 +134,10 @@ kbl(head(DATA_wide, 20))%>%
 table(DATA_wide$Participant_ID, DATA_wide$Timepoint, useNA = "always")
 ```
 
-```{r}
-table(DATA_repli_wide$Participant_ID, DATA_repli_wide$Timepoint, useNA = "always")
-```
-
 
 # Saving 
 
 ```{r}
 save(DATA, DATA_wide, file="MetabolomeData.Rdata")
-save(DATA_repli, file="MetabolomeData_duplicated.Rdata") # not ready yet
 ```
 

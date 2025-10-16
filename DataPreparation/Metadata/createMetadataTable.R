@@ -126,8 +126,10 @@ identical(JoinInfo, ess) # TRUE
 ###########
 # Export  #
 ###########
-write.xlsx(JoinInfo, "Metadata.xlsx", sheetName = "Sheet1", row.names = F)
-write.xlsx(JoinInfo_meta, "Metadata_metabolome.xlsx", sheetName = "Sheet1", row.names = F)
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/DataPreparation/"
 
-write.xlsx(as.data.frame(SamplesInfo_Boston_S), "Metadata_Boston_S.xlsx", sheetName = "Sheet1", row.names = F)
-write.xlsx(as.data.frame(SamplesInfo_Boston_P), "Metadata_Boston_P.xlsx", sheetName = "Sheet1", row.names = F)
+write.xlsx(JoinInfo, paste(dir, "Microbiome/Metadata.xlsx", sep=""), sheetName = "Sheet1", row.names = F)
+write.xlsx(JoinInfo_meta, paste(dir, "Metabolomic/Metadata_metabolome.xlsx", sep=""), sheetName = "Sheet1", row.names = F)
+
+write.xlsx(as.data.frame(SamplesInfo_Boston_S), paste(dir, "BloodMarkers/Metadata_Boston_S.xlsx", sep=""), sheetName = "Sheet1", row.names = F)
+write.xlsx(as.data.frame(SamplesInfo_Boston_P), paste(dir, "BloodMarkers/Metadata_Boston_P.xlsx", sep=""), sheetName = "Sheet1", row.names = F)

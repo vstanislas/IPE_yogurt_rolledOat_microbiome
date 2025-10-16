@@ -20,14 +20,15 @@ library(microbiome)
 library(patchwork)
 library(ggExtra)
 
-dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
-dir1 <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
-dir <- paste(dir1, "DataPreparation/Microbiome_DATA_Kun_Huang/", sep="")
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+dir1 <- paste(dir, "DataPreparation/Microbiome/", sep="")
 
-source(file = paste(dir1, "Utils.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
+
+source(file = paste(dir, "R functions/Utils.R", sep=""))
+source(file = paste(dir, "R functions/Utils_metagenomics.R", sep=""))
+source(file = paste(dir, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir, "R functions/code_utils.R", sep=""))
 ```
 
 
@@ -35,7 +36,7 @@ source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
 # Loading tables
 ## Metadata
 ```{r}
-metadata <- read_excel(paste(dir, "Metadata.xlsx", sep=""), sheet=1)
+metadata <- read_excel(paste(dir1, "Metadata.xlsx", sep=""), sheet=1)
 metadata <- as.data.frame(metadata)
 
 metadata$Sample_ID <- gsub("-", "", metadata$Sample_ID)
@@ -309,7 +310,7 @@ pp
 # Saving objects
 
 ```{r}
-save(tse_pathway, physeq_pathway, file=paste(dir, "Functional/TSE_Physeq_Pathway.Rdata", sep=""))
+save(tse_pathway, physeq_pathway, file=paste(dir1, "Functional/TSE_Physeq_Pathway.Rdata", sep=""))
 ```
 
 
@@ -321,7 +322,7 @@ colnames(desc_df_toSave) <- c("Pathway", "Description", "Total CPM")
 
 colnames(desc_tax_df) <- c("Pathway", "Description", "Genus", "Species", "Total CPM")
 
-write.xlsx(desc_df_toSave, file=paste(dir1, "DataAnalysis/Pathways_description2.xlsx", sep=""), sheetName="Pathways description")
-write.xlsx(desc_tax_df, file=paste(dir1, "DataAnalysis/Pathways_description2.xlsx", sep=""), sheetName="Pathways and taxonomy", append = T)
+write.xlsx(desc_df_toSave, file=paste(dir, "DataAnalysis/Pathways_description.xlsx", sep=""), sheetName="Pathways description")
+write.xlsx(desc_tax_df, file=paste(dir, "DataAnalysis/Pathways_description.xlsx", sep=""), sheetName="Pathways and taxonomy", append = T)
 ```
 

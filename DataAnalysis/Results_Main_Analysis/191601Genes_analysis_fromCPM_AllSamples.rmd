@@ -47,22 +47,20 @@ library(tictoc)
 ```
 
 
-```{r message=FALSE}
-dir0 <- "Q:/IPE-A-Epidemiologie/Virginie_Stanislas/Projects/"
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/"
-path_analysis <- paste(dir, "DataAnalysis/Results_Complete_Analysis/ResultsFunctional/On_191601genes_fromCPM/", sep="")
+```{r}
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+path_analysis <- paste(dir, "DataAnalysis/Results_Main_Analysis/ResultsFunctional/On_191601genes_fromCPM/", sep="")
 
-source(file = paste(dir, "Utils.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_metagenomics.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_longitudinal.R", sep=""))
-source(file = paste(dir0, "R functions/Utils_crossOver.R", sep=""))
-source(file = paste(dir0, "R functions/code_utils.R", sep=""))
+
+source(file = paste(dir, "R functions/Utils.R", sep=""))
+source(file = paste(dir, "R functions/Utils_longitudinal.R", sep=""))
+source(file = paste(dir, "R functions/Utils_crossOver.R", sep=""))
+source(file = paste(dir, "R functions/code_utils.R", sep=""))
 ```
 
-
-
+# Data preparation
 ```{r message=FALSE}
-load(paste(dir, "DataPreparation/Microbiome_DATA_Kun_Huang/Functional/TSE_Physeq_191601genes_fromCPM.Rdata", sep=""))
+load(paste(dir, "DataPreparation/Microbiome/Functional/TSE_Physeq_191601genes_fromCPM.Rdata", sep=""))
 
 tse0 <- tse_genes  
 physeq0 <- physeq_genes 
@@ -168,7 +166,7 @@ load(paste(path_analysis, "tse_allwithordination.Rdata", sep=""))
 ```{r}
 assay <- "CPM"
 
-### Strange plot when using tse, probably UNMAPPED explain all the variation on first axis??
+### UNMAPPED explain all the variation on first axis
 tse <- runMDS(tse, FUN = vegan::vegdist, method = "bray", name = "PCoA_withUNMAPPED", exprs_values = assay, keep_dist = T)
 
 set.seed(40)
@@ -190,8 +188,6 @@ tse_geneOnly <- runNMDS(tse_geneOnly, FUN = vegan::vegdist, method = "bray", nam
 set.seed(40)
 
 
-# Alternative methods to try
-# not easy to change the metric for UMAP, no braycurtis dissimilarity in package uwot
 set.seed(122)
 tse_geneOnly <- runTSNE(tse_geneOnly, name = "TSNE_geneOnly", exprs_values=assay)
 set.seed(122)
@@ -214,141 +210,6 @@ add_name <- "_geneOnly"
 
 if(assay == "relabundance") data_assay <- "_rel" 
 if(assay == "CPM") data_assay <- "_cpm"
-```
-
-
-## PCoA Bray-Curtis
-
-Almost the same representation when done on filtered data `tse_sub`.
-```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
-pp <- plot_ordination(tse_for_ordination, paste("PCoA", add_name, sep=""),
-                      sd_threshold=0.17, data_type="Functional", assay=assay)
-e <- attr(reducedDim(tse_for_ordination, paste("PCoA", add_name, sep="")), "eig");
-rel_eig <- e/sum(e[e>0])          
-x_lab = paste("PCoA 1 (", round(100 * rel_eig[[1]],1), "%", ")", sep = "")
-y_lab = paste("PCoA 2 (", round(100 * rel_eig[[2]],1), "%", ")", sep = "")
-
-PartHsd_PCoA_BC <- pp$Participants_high_sd
-p1 <- pp$p_gruppe + labs(x=x_lab, y=y_lab)
-p2 <- pp$p_topdom
-p3 <- pp$p_2ndtopdom
-p4 <- pp$p_inter_treat + labs(x=x_lab, y=y_lab)
-p5 <- pp$p_part + labs(x=x_lab, y=y_lab)
-p6 <- pp$p_hv_part + labs(x=x_lab, y=y_lab)
-p7 <- pp$p_total_ab + labs(x=x_lab, y=y_lab)
-```
-Warning message: "'clr' includes negative values. Agglomeration of it might lead to meaningless values." comes from `plot_ordination()` when identifying the most dominant taxa for a specific rank. We can ignore it as we use 'relabudance' assays for identifying dominant taxa.
-
-```{r fig.height=7, fig.width=10, message=FALSE, paged.print=FALSE}
-p2
-```
-
-```{r}
-Genes_multi <- names(abundance_CPM)[1:13]
-
-p_list <- list()
-for(i in seq(length(Genes_multi))){
-Genes <- Genes_multi[i]
-p_list[[i]] <- plot_ordination(tse, paste("PCoA", add_name, sep=""), functional_id=Genes, data_type="Functional", assay=assay, top_dom=F)$p_1spec 
-}
-```
-
-
-```{r}
-ggsave(paste(path_analysis, "Ordination_plots/PCoA", add_name, data_assay, ".png", sep=""), 
-       p1 + p5 + p2+ p4 + p6 + p3+ p7 + plot_layout(guides = 'collect'), 
-       width=27, height=20)
-
-
-ggsave(paste(path_analysis, "Ordination_plots/PCoA", add_name, data_assay, "_withAbundance.png", sep=""), 
-       wrap_plots(p_list, ncol=4) , 
-       width=30, height=20)
-```
-
-
-
-## NMDS Bray-Curtis
-
-Almost the same representation when done on filtered data `tse_sub`.
-```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
-pp <- plot_ordination(tse_for_ordination, paste("NMDS", add_name, sep=""), 
-                      sd_threshold=0.2, data_type="Functional", assay=assay)
-PartHsd_NMDS_BC <- pp$Participants_high_sd
-p1 <- pp$p_gruppe 
-p2 <- pp$p_topdom
-p3 <- pp$p_2ndtopdom
-p4 <- pp$p_inter_treat 
-p5 <- pp$p_part 
-p6 <- pp$p_hv_part
-p7 <- pp$p_total_ab 
-```
-
-
-```{r fig.height=7, fig.width=10, message=FALSE, paged.print=FALSE}
-p2
-```
-
-```{r}
-Genes_multi <- names(abundance_CPM)[1:13]
-
-p_list <- list()
-for(i in seq(length(Genes_multi))){
-Genes <- Genes_multi[i]
-p_list[[i]] <- plot_ordination(tse, paste("NMDS", add_name, sep=""), functional_id=Genes, data_type="Functional", assay=assay, top_dom=F)$p_1spec 
-}
-```
-
-
-```{r}
-ggsave(paste(path_analysis, "Ordination_plots/NMDS", add_name, data_assay,".png", sep=""), 
-       p1 + p5 + p2+ p4 + p6 + p3+ p7 + plot_layout(guides = 'collect'), 
-       width=27, height=20)
-
-ggsave(paste(path_analysis, "Ordination_plots/NMDS", add_name, data_assay, "_withAbundance.png", sep=""), 
-       wrap_plots(p_list, ncol=4) , 
-       width=30, height=20)
-```
-
-
-
-## TSNE
-```{r fig.height=12, fig.width=24, message=FALSE, warning=FALSE, paged.print=FALSE}
-pp <- plot_ordination(tse_for_ordination, paste("TSNE", add_name, sep=""),
-                      sd_threshold=10, data_type="Functional", assay=assay)
-PartHsd_TSNE <- pp$Participants_high_sd
-p1 <- pp$p_gruppe 
-p2 <- pp$p_topdom
-p3 <- pp$p_2ndtopdom
-p4 <- pp$p_inter_treat 
-p5 <- pp$p_part 
-p6 <- pp$p_hv_part
-p7 <- pp$p_total_ab 
-```
-
-
-```{r fig.height=7, fig.width=10, message=FALSE, paged.print=FALSE}
-p2
-```
-
-```{r}
-Genes_multi <- names(abundance_CPM)[1:13]
-
-p_list <- list()
-for(i in seq(length(Genes_multi))){
-Genes <- Genes_multi[i]
-p_list[[i]] <- plot_ordination(tse, paste("TSNE", add_name, sep=""), functional_id=Genes, data_type="Functional", assay=assay, top_dom=F)$p_1spec 
-}
-```
-
-
-```{r}
-ggsave(paste(path_analysis, "Ordination_plots/TSNE", add_name, data_assay,".png", sep=""),
-       p1 + p5 + p2+ p4 + p6 + p3+ p7 + plot_layout(guides = 'collect'), 
-       width=27, height=20)
-
-ggsave(paste(path_analysis, "Ordination_plots/TSNE", add_name, data_assay, "_withAbundance.png", sep=""), 
-       wrap_plots(p_list, ncol=4) , 
-       width=30, height=20)
 ```
 
 
@@ -426,28 +287,15 @@ physeq_geneOnly_noFact  %>%
 
 # Beta diversity
 
+```{r}
+library(NBZIMM)
+```
 
 ```{r}
 assay_t <- t(assays(tse)[["CPM"]]) %>% as.data.frame()
 Perct0 <- apply(assay_t, 2, function(x) sum(x==0)/nrow(assay_t)*100)
 
 hist(Perct0)
-```
-
-
-```{r}
-genes_infos <- data.frame(Perct0)
-genes_infos$Genes <- rownames(genes_infos)
-genes_infos$prev <- 100-genes_infos$Perct0
-genes_infos <- genes_infos[, c(2,1,3)]
-```
-
-
-
-
-## transformation + covariates
-```{r}
-library(NBZIMM)
 ```
 
 
@@ -459,6 +307,7 @@ metadata <- as.data.frame(colData(tse))
 DF <- merge(metadata, assay_t, by="Sample_ID")
 DF_subs <- prepare_DATA(DF, NULL)
 ```
+
 ### Model full
 ```{r}
 #### Model full
@@ -476,22 +325,6 @@ DF_full <- DF_work_mod
 ```
 
 
-```{r}
-# model <- "glmmTMB"
-# trans <- "_cov"
-# sig_threshold <- 0.03
-```
-
-```{r}
-### RAN BY KUN but problems with glmmTMB model
-# tic()
-# # CPLM
-# wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
-# setwd(wd0)
-# run_taxa_model(Genes, package="glmmTMB", counts=F, FE=FE, RE=RE, DF=DF_work, compar_var=compar_var, var_check=NULL, savingName=paste("glmmTMB_", compa, sep=""), sig_threshold=sig_threshold, check_mod=T, save_mod=F,  path=paste("glmmTMB_cov/", compa, "/", sep=""))
-# toc()
-```
-
 
 ```{r}
 model <- "NBZIMM_asinsqrt"
@@ -500,33 +333,12 @@ model <- "NBZIMM_asinsqrt"
 ```
 
 ```{r}
-### RAN BY KUN
 # tic()
 # # ZIG
 # wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
 # setwd(wd0)
 # run_taxa_model(Genes, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("NBZIMM_asinsqrt_cov/", compa, "/", sep=""))
 # toc()
-```
-
-```{r}
-path <- paste(path_analysis, "ResultsBetadiv/NBZIMM_asinsqrt_cov_1cpm/", compa, "/",  sep="")
-
-res_all_full <- read.table(file=paste(path, model, "_", compa,"_res_all_results.tsv", sep=""))
-res_anov_all_full <- read.table(file=paste(path, model, "_", compa,"_res_anov_results.tsv", sep=""))
-PRS_all_full <- read.table(file=paste(path, model, "_", compa,"_PRS_all_results.tsv", sep=""))
-```
-
-```{r}
-# Reduced res_all to 76 significant genes
-res_all_red_full <-subset(res_all_full, names != "BAfter")
-res_all_red_full <-subset(res_all_red_full, p.value<0.00005)
-
-# Reduced PRS_all to 58 significant genes
-PRS_all_red_full <-subset(PRS_all_full, p.value <0.001)
-
-savingName=paste(model, "_", compa, sep="")
-plot_results(res_all_red_full, res_anov_all_full, PRS_all_red_full,  DF=DF_work_mod, FE, sig_threshold= 0.001, savingName=savingName, path, counts=F, trans_plot=NULL, compar_var)
 ```
 
 
@@ -556,7 +368,6 @@ model <- "NBZIMM_asinsqrt"
 ```
 
 ```{r}
-### RAN BY KUN
 # tic()
 # # ZIG
 # wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
@@ -564,29 +375,6 @@ model <- "NBZIMM_asinsqrt"
 # run_taxa_model(Genes, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("NBZIMM_asinsqrt_cov/", compa, "/", sep=""))
 # toc()
 ```
-
-```{r}
-path <- paste(path_analysis, "ResultsBetadiv/NBZIMM_asinsqrt_cov_1cpm/", compa, "/", sep="")
-
-res_all_Y <- read.table(file=paste(path, model, "_", compa,"_res_all_results.tsv", sep=""))
-res_anov_all_Y <- read.table(file=paste(path, model, "_", compa,"_res_anov_results.tsv", sep=""))
-PRS_all_Y <- read.table(file=paste(path, model, "_", compa,"_PRS_all_results.tsv", sep=""))
-```
-
-```{r}
-# Reduced res_all to 80 significant genes
-res_all_red_Y <-subset(res_all_Y, names != "BAfter")
-res_all_red_Y <-subset(res_all_red_Y, p.value<0.0001)
-
-
-# Reduced PRS_all to 100 significant genes
-PRS_all_red_Y <- PRS_all_Y[1:100, ]
-
-savingName=paste(model, "_", compa, sep="")
-plot_results(res_all_red_Y, res_anov_all_Y, PRS_all_red_Y,  DF=DF_work_mod, FE, sig_threshold= 0.001, savingName=savingName, path, counts=F, trans_plot=NULL, compar_var)
-```
-
-
 
 
 ### Model YO
@@ -615,34 +403,12 @@ model <- "NBZIMM_asinsqrt"
 ```
 
 ```{r}
-### RAN BY KUN
 # tic()
 # # ZIG
 # wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
 # setwd(wd0)
 # run_taxa_model(Genes, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("NBZIMM_asinsqrt_cov/", compa, "/", sep=""))
 # toc()
-```
-
-```{r}
-path <- paste(path_analysis, "ResultsBetadiv/NBZIMM_asinsqrt_cov_1cpm/", compa, "/", sep="")
-
-res_all_YO <- read.table(file=paste(path, model, "_", compa,"_res_all_results.tsv", sep=""))
-res_anov_all_YO <- read.table(file=paste(path, model, "_", compa,"_res_anov_results.tsv", sep=""))
-PRS_all_YO <- read.table(file=paste(path, model, "_", compa,"_PRS_all_results.tsv", sep=""))
-```
-
-```{r}
-# Reduced res_all to 61 significant genes
-res_all_red_YO <-subset(res_all_YO, names != "BAfter")
-res_all_red_YO <-subset(res_all_red_YO, p.value<0.00005)
-
-
-# Reduced PRS_all to 100 significant genes
-PRS_all_red_YO <- PRS_all_YO[1:100, ]
-
-savingName=paste(model, "_", compa, sep="")
-plot_results(res_all_red_YO, res_anov_all_YO, PRS_all_red_YO,  DF=DF_work_mod, FE, sig_threshold= 0.001, savingName=savingName, path, counts=F, trans_plot=NULL, compar_var)
 ```
 
 
