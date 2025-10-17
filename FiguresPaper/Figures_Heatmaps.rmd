@@ -1,5 +1,5 @@
 ---
-title: "Merge results complete analysis"
+title: "Figures Heatmaps"
 output: 
   html_notebook:
     number_sections: yes
@@ -21,9 +21,8 @@ library(readxl)
 ```
 
 
-
 ```{r message=FALSE}
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/Public_repository/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
 
 source(file = paste(dir, "R functions/Utils.R", sep=""))
 source(file = paste(dir, "R functions/Utils_longitudinal.R", sep=""))
@@ -370,6 +369,10 @@ ggsave("Figure4_Heatmap_GO_pval_newNames.png", grid.grabExpr(draw(ht_GO_pval_new
 ```
 
 
+
+# Figure 4 C
+
+See code to generate figure under /DataAnalysis/Results_Main_Analysis/genes_yogurtspecies.R
 
 
 # Sup Figure 4

@@ -20,7 +20,6 @@ library(microbiome)
 library(patchwork)
 library(ggExtra)
 
-
 dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
 dir1 <- paste(dir, "DataPreparation/Microbiome/", sep="")
 
@@ -37,7 +36,7 @@ source(file = paste(dir, "R functions/code_utils.R", sep=""))
 # Loading tables
 ## Metadata
 ```{r}
-metadata <- read_excel(paste(dir1, "Metadata.xlsx", sep=""), sheet=1)
+metadata <- read_excel(paste(dir, "Metadata.xlsx", sep=""), sheet=1)
 metadata <- as.data.frame(metadata)
 
 metadata$Sample_ID <- gsub("-", "", metadata$Sample_ID)
@@ -66,12 +65,11 @@ rownames(metadata) <- metadata[, "Sample_ID"]
 dim(metadata) # 440   11
 ```
 
-
 ## Pathway and description
 
 ```{r}
-load("JH_191601genes_CPM.Rdata")
-dim(genes_JH) #  191601    442
+load("JH_946461genes_CPM.Rdata") ## NOT IN GITHUB, TOO LARGE
+dim(genes_JH) # 946461    442
 ```
 
 ```{r}
@@ -83,7 +81,7 @@ genes_JH$Total_ab <- rowSums(genes_JH[, -c(1:2)], na.rm=T)
 genes_JH <- genes_JH[order(genes_JH$Total_ab, decreasing=T),]
 
 
-# separate pathway description to another file
+# separate genes description to another file
 desc_df <- genes_JH[, c("Genes", "Descr", "Total_ab")] 
 
 genes_JH$Genes <- NULL
@@ -105,18 +103,16 @@ sum(is.na(genes_JH)) # 0
 ```{r}
 summary(colSums(genes_JH))
  #   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
- # 587248  864557  890338  880971  909411  970094 
+ # 663413  954990  973556  960978  982299  993994 
 ```
 
 ```{r}
 hist(colSums(genes_JH))
 ```
 
-
 ```{r}
-dim(genes_JH) # [1] 191601    440
+dim(genes_JH) # 946461    440
 ```
-
 
 ```{r}
 inters_names <- intersect(colnames(genes_JH), rownames(metadata))
@@ -133,8 +129,7 @@ rownames(metadata)[!(rownames(metadata) %in% inters_names)]
 ## Tree Summarized Experiment
 
 
-
-### 191601 genes
+### 946461 genes
 ```{r}
 metadata <- metadata[order(metadata$Sample_ID), ]
 tse_genes <- TreeSummarizedExperiment(assays =  SimpleList(CPM=as.matrix(genes_JH)),
@@ -147,11 +142,9 @@ tse_genes
 ```
 
 
-
 ## Phyloseq
 
-
-### 191601 genes
+### 946461 genes
 ```{r}
 OTU = otu_table(as.matrix(genes_JH), taxa_are_rows = TRUE)
 TAX = tax_table(desc_df[, 1:2])
@@ -161,7 +154,7 @@ SAM = sample_data(metadata)
 ```
 
 ```{r}
-dim(OTU) # [1] 191601    440
+dim(OTU) #[1] 946461    440
 ```
 
 
@@ -197,7 +190,8 @@ if(!nrow(OTU) == nrow(otu_table(physeq_genes))){
 
 # Prevalence and abundance
 
-## 191601 genes 
+
+## 946461 genes
 ```{r}
 total_abundance <- rowSums(genes_JH) 
 max_abundance <- apply(genes_JH, 1, max)
@@ -216,6 +210,7 @@ wrap_plots(p1, p2, p3, ncol=2)
 
 
 
+
 # Normalization 
 
 ## Check total number of reads
@@ -230,11 +225,21 @@ pp
 ```
 
 
+
 # Saving objects
 
+
 ```{r}
-save(tse_genes, physeq_genes, file=paste(dir1, "Functional/TSE_Physeq_191601genes_fromCPM.Rdata", sep=""))
+save(tse_genes, physeq_genes, file=paste(dir, "Functional/TSE_Physeq_946461genes_fromCPM.Rdata", sep=""))
+## NOT IN GITHUB, TOO LARGE
 ```
 
 
+```{r}
+desc_df_toSave <- desc_df
+rownames(desc_df_toSave) <- NULL
+colnames(desc_df_toSave) <- c("Genes", "Description", "Total CPM")
+
+write.table(desc_df_toSave, file=paste(dir, "DataAnalysis/Genes_description_fromCPM.tsv", sep="")) # then transform to .xlsx in excel
+```
 

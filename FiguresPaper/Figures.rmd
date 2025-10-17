@@ -16,14 +16,13 @@ output:
 
 
 
-
 ```{r message=FALSE}
 library(phyloseq)
 library(ggplot2)
 library(mia)
 library(patchwork)
 
-dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/Public_repository/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
+dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
 
 path_analysis <- paste(dir, "DataAnalysis/Results_Main_Analysis/ResultsTaxonomy/", sep="")
 

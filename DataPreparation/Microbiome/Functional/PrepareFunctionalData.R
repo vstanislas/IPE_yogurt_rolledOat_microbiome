@@ -9,7 +9,7 @@ library(tidyr)
 ################################
 #     KEGG table               #
 ################################
-# Only yogurt samples and JH144 already present
+# JH144 already present
 KEGG_JH <- read.delim("ko_merged_440samples_1cpm_10prev.tsv", comment.char = "")
 colnames(KEGG_JH)[1] <- "KEGG"
 
@@ -25,7 +25,7 @@ save(KEGG_JH, file="JH_KEGG.Rdata")
 ################################
 #     GO table               #
 ################################
-# Only yoghurt samples and JH144 already present
+# JH144 already present
 GO_JH <- read.delim("go_merged_440samples_1cpm_10prev.tsv", comment.char = "")
 colnames(GO_JH)[1] <- "GO"
 
@@ -174,22 +174,23 @@ save(kegg_go0, go_data, ko_data, info_ko, info_go, file="KEGG_GO_annotation.Rdat
 #     Gene annotation                #
 ######################################
 
-## REDUCED CPM TABLE (with additionaly CPM>1): genefamilies_exp86_440_cpm_unstratified_10prev_1cpm.tsv
-# Only yoghurt samples and JH144 already present
-genes_JH <- read.delim("genefamilies_exp86_440_cpm_unstratified_10prev_1cpm.tsv", comment.char = "")
+## REDUCED CPM TABLE: genefamilies_exp86_440_cpm_unstratified_10prev.tsv
+## NOT IN GITHUB, TOO LARGE
+# JH144 already present
+genes_JH <- read.delim("genefamilies_exp86_440_cpm_unstratified_10prev.tsv", comment.char = "")
 colnames(genes_JH)[1] <- "Genes"
 
 ## separate genes info 
-genes_JH <- separate_wider_delim(genes_JH,  cols="Genes", delim=": ", names=c("Genes", "Descr"), too_few = "align_start", too_many = "merge") # will keep in same column further iteration of ": "
+genes_JH <- separate_wider_delim(genes_JH,  cols="Genes", delim=": ", names=c("Genes", "Descr"), too_few = "align_start", too_many = "merge")
 genes_JH <- as.data.frame(genes_JH)
-dim(genes_JH) # 191601   
+dim(genes_JH) # 946461   
 rs <- rowSums(genes_JH[, 3:ncol(genes_JH)], na.rm =T) 
 
 ## remove empty rows (no empty rows)
 which(rs==0) # integer(0)
 
-save(genes_JH, file="JH_191601genes_CPM.Rdata")
-
+save(genes_JH, file="JH_946461genes_CPM.Rdata")
+## NOT IN GITHUB, TOO LARGE
 
 
 
