@@ -22,6 +22,9 @@ library(ggplot2)
 library(mia)
 library(patchwork)
 
+
+
+dir <- "Q:/IPE-P-Joghurtstudie/Joghurt und Haferflocken/Analysis/Public_repository/GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
 dir <- "GitHub_repository/IPE_yogurt_rolledOat_microbiome/"
 
 path_analysis <- paste(dir, "DataAnalysis/Results_Main_Analysis/ResultsTaxonomy/", sep="")
@@ -179,24 +182,34 @@ permanova_bray <- adonis2(t(assay(tse_baseline, "relabundance")) ~  Gruppe+ BMI 
 permanova_bray_df <- as.data.frame(permanova_bray)
 
 
+permanova_aitch <- adonis2(t(assay(tse_baseline, "clr")) ~  Gruppe+ BMI + Alter + Geschlecht + Observed + Prevotella_genus + Bacteroides_genus + Ruminococcus_genus,
+                         by = "margin", # each term analyzed individually
+                         data = colData(tse_baseline),
+                         method = "euclidean",
+                         permutations = 9999, 
+                         na.action=na.omit)
+permanova_aitch_df <- as.data.frame(permanova_aitch)
+
+
 df <- data.frame(permanova_euc_df[,"Pr(>F)", drop=F],
+                 permanova_aitch[,"Pr(>F)", drop=F],
                  permanova_bray_df[,"Pr(>F)", drop=F])
-colnames(df) <- c("euclidean", "bray")
+colnames(df) <- c("euclidean", "Aitchison", "bray")
 df
 ```  
 
 ```
-                   euclidean   bray
-Gruppe                0.1811 0.2791
-BMI                   0.8870 0.5102
-Alter                 0.3989 0.1634
-Geschlecht            0.0737 0.1034
-Observed              0.0001 0.0001
-Prevotella_genus      0.0001 0.0001
-Bacteroides_genus     0.0001 0.0001
-Ruminococcus_genus    0.0002 0.0001
-Residual                  NA     NA
-Total                     NA     NA
+                   euclidean Aitchison   bray
+Gruppe                0.1811    0.5579 0.2791
+BMI                   0.8870    0.0388 0.5102
+Alter                 0.3989    0.2974 0.1634
+Geschlecht            0.0737    0.2474 0.1034
+Observed              0.0001    0.0001 0.0001
+Prevotella_genus      0.0001    0.0225 0.0001
+Bacteroides_genus     0.0001    0.0482 0.0001
+Ruminococcus_genus    0.0002    0.1220 0.0001
+Residual                  NA        NA     NA
+Total                     NA        NA     NA
 
 permanova_bray_df
                     Df SumOfSqs      R2      F Pr(>F)    
@@ -210,6 +223,22 @@ Bacteroides_genus    1   0.7478 0.03014 3.7439 0.0001 ***
 Ruminococcus_genus   1   0.5389 0.02172 2.6978 0.0001 ***
 Residual            97  19.3750 0.78101                  
 Total              105  24.8076 1.00000                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+permanova_aitch_df
+                    Df SumOfSqs      R2      F Pr(>F)    
+Gruppe               1     6377 0.00837 0.9514 0.5579    
+BMI                  1     8940 0.01174 1.3338 0.0388 *  
+Alter                1     7017 0.00921 1.0468 0.2974    
+Geschlecht           1     7213 0.00947 1.0761 0.2474    
+Observed             1    37265 0.04892 5.5597 0.0001 ***
+Prevotella_genus     1     9785 0.01285 1.4599 0.0225 *  
+Bacteroides_genus    1     8803 0.01156 1.3133 0.0482 *  
+Ruminococcus_genus   1     7899 0.01037 1.1784 0.1220    
+Residual            97   650161 0.85352                  
+Total              105   761741 1.00000                  
 ---
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 ```
