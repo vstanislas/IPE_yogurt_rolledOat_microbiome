@@ -125,7 +125,7 @@ ht_alpha <-compare_model(list_model, "-log(qval)*sign(est)", order=T, col_rot=45
 #### Blood markers
 
 ```{r}
-change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "sRAGE", "8-OHdG", "Zonulin") 
+change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "RAGE", "8-OHdG", "Zonulin") 
 names(change_feature_name) <- c("SCRP_bc", "IL6_bc", "TNFR2_bc", "FRUC_bc", "RAGE_bc", "m_8OHdG_bc", "zonulin_bc") 
 ```
 
@@ -170,6 +170,7 @@ res_SCFA_1 <- reduce_res(res_SCFA_1, change_feature_name)
 res_SCFA_2 <- reduce_res(res_SCFA_2, change_feature_name)
 res_SCFA_3 <- reduce_res(res_SCFA_3, change_feature_name)
 ```
+
 
 
 ```{r}
@@ -318,7 +319,7 @@ res_alpha_3<- print_Rosner_model(paste(path_analysis, "ResultsAlpha/", sep=""), 
 
 ### Blood markers
 ```{r}
-change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "sRAGE", "8-OHdG", "Zonulin") 
+change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "RAGE", "8-OHdG", "Zonulin") 
 names(change_feature_name) <- c("SCRP_bc", "IL6_bc", "TNFR2_bc", "FRUC_bc", "RAGE_bc", "m_8OHdG_bc", "zonulin_bc") 
 ```
 
@@ -507,7 +508,7 @@ ht_alpha <-compare_model(list_model, "-log(qval)*sign(est)", order=T, col_rot=45
 
 
 ```{r}
-change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "sRAGE", "8-OHdG", "Zonulin") 
+change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "RAGE", "8-OHdG", "Zonulin") 
 names(change_feature_name) <- c("SCRP_bc", "IL6_bc", "TNFR2_bc", "FRUC_bc", "RAGE_bc", "m_8OHdG_bc", "zonulin_bc") 
 ```
 
@@ -743,7 +744,7 @@ res_alpha_4<- print_Rosner_model(paste(path_analysis, "ResultsAlpha/", sep=""), 
 
 ### Blood markers
 ```{r}
-change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "sRAGE", "8-OHdG", "Zonulin") 
+change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "RAGE", "8-OHdG", "Zonulin") 
 names(change_feature_name) <- c("SCRP_bc", "IL6_bc", "TNFR2_bc", "FRUC_bc", "RAGE_bc", "m_8OHdG_bc", "zonulin_bc") 
 ```
 

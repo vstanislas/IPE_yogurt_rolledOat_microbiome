@@ -551,8 +551,9 @@ DF_work_mod[,taxa] <- asin(sqrt(DF_work_mod[, taxa]/100))
 ```{r}
 tic()
 # ZIG AST
-setwd(paste(path_analysis, "ResultsBetadiv/", sep=""))
-run_taxa_model(taxa, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_rel_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=F, save_mod=F,  path=paste("NBZIMM_rel_asinsqrt/", compa, "/", sep=""))
+wd0 <- paste(path_analysis, "ResultsBetadiv/", sep="")
+setwd(wd0)
+run_taxa_model(taxa, package="NBZIMM", counts=F, FE=FE, RE=RE, DF=DF_work_mod, compar_var=compar_var, var_check=NULL, savingName=paste("NBZIMM_rel_asinsqrt_", compa, sep=""), sig_threshold=sig_threshold, check_mod=T, save_mod=F,  path=paste("NBZIMM_rel_asinsqrt/", compa, "/", sep=""))
 toc()
 # Model full: 596.56 sec elapsed 240.58 sec elapsed
 # Model Y: 417.39 sec elapsed 196.39 sec elapsed

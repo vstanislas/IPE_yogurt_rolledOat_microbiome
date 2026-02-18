@@ -83,7 +83,7 @@ ht_alpha <- print_Rosner_model(paste(path_analysis_Taxa, "ResultsAlpha/", sep=""
 ## Blood markers
 
 ```{r}
-change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "sRAGE", "8-OHdG", "Zonulin") 
+change_feature_name <- c("CRP", "Interleukin-6", "TNFR2", "Fructosamine", "RAGE", "8-OHdG", "Zonulin") 
 names(change_feature_name) <- c("SCRP_bc", "IL6_bc", "TNFR2_bc", "FRUC_bc", "RAGE_bc", "m_8OHdG_bc", "zonulin_bc") 
 ```
 

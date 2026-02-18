@@ -314,93 +314,6 @@ df$total <- rowSums(df, na.rm=T)
 df[order(df$total, decreasing=T),]
 ```
 
-## Filtering
-
-```{r}
-data_filt <- data_merged
-
-id <- which(data_filt$Participant_ID == "ID045" & data_filt$Timepoint =="T3" | 
-              data_filt$Participant_ID == "ID067" & data_filt$Timepoint =="T2"| 
-              data_filt$Participant_ID == "ID014" & data_filt$Timepoint =="T4")
-data_filt$TNFR2[id] <- NA
-
-id <- which(data_filt$Participant_ID == "ID067" & data_filt$Timepoint =="T2" | 
-              data_filt$Participant_ID == "ID089" & data_filt$Timepoint =="T1"|
-              data_filt$Participant_ID == "ID109" & data_filt$Timepoint =="T3")
-data_filt$IL6[id] <- NA
-
-
-id <- which(data_filt$Participant_ID == "ID087" & data_filt$Timepoint =="T2")
-data_filt$zonulin[id] <- NA
-
-id <- which(data_filt$Participant_ID == "ID042" & data_filt$Timepoint =="T4" |
-              data_filt$Participant_ID == "ID118")
-data_filt$FRUC[id] <- NA
-
-
-id <- which(data_filt$Participant_ID == "ID067" & data_filt$Timepoint =="T2"|
-              data_filt$Participant_ID == "ID073" & data_filt$Timepoint =="T1"|
-              data_filt$Participant_ID == "ID084" & data_filt$Timepoint =="T4"| 
-              data_filt$Participant_ID == "ID089" & data_filt$Timepoint =="T1")
-data_filt$SCRP[id] <- NA
-```
-
-```{r fig.height=14, fig.width=12, warning=FALSE}
-ll_plot <- list()
-for(i in 1:8){
-  ll_plot[[i]] <- plot_sample_measure_CO(data_filt, measures[i], "", x="Timepoint", colorInter = T, print_table=F, trans = trans[i], line_diff = T) 
-}
-
-wrap_plots(ll_plot, nrow=4)  + plot_layout(guides = "collect") 
-```
-
-
-```{r fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
-ll_plot <- list()
-for(i in 1:8){
-  ll_plot[[1]] <- ggplot(data_filt, aes(x=.data[[measures[i]]])) + geom_histogram(color="white") +  theme_classic() + ggtitle("Raw data")
-  ll_plot[[2]] <- ll_plot[[1]] + scale_x_continuous(trans = "sqrt")  + ggtitle("square root transformed")
-  ll_plot[[3]] <- ll_plot[[1]] + scale_x_continuous(trans = "log2")  + ggtitle("Log2 transformed") 
-  ll_plot[[4]] <- ll_plot[[1]] + scale_x_continuous(trans=scales::pseudo_log_trans(base = 2)) + ggtitle("pseudo Log2 transformed") 
-  
-  print(wrap_plots(ll_plot, nrow=2)  + plot_layout(guides = "collect") + plot_annotation(title=measures[i]))
-}
-``` 
-
-```{r paged.print=FALSE}
-shap <- c()
-shap_log <- c()
-shap_psd_log <- c()
-shap_sqrt <- c()
-for(i in 1:8){
-  x <- data_filt[,measures[i]]
-  y <- replace(x, x == 0, min(x[x > 0])/2)
-  
-  shap <-  c(shap, shapiro.test(x)$p.value)
-  shap_log <-  c(shap_log, shapiro.test(log10(y))$p.value)
-  shap_psd_log <-  c(shap_psd_log, shapiro.test(pseudo_log(x, base=10))$p.value)
-  shap_sqrt <-  c(shap_sqrt, shapiro.test(sqrt(x))$p.value)
-}
-
-data.frame(measures, shap, shap_log, shap_psd_log, shap_sqrt)
-#   measures         shap     shap_log shap_psd_log    shap_sqrt
-# 1    TNFR2 4.230890e-09 3.786570e-01 3.786548e-01 2.649541e-04
-# 2      IL6 9.636421e-30 7.241718e-08 1.154664e-22 1.929333e-20
-# 3     RAGE 4.071492e-03 1.341647e-17 1.345186e-17 9.354760e-05
-# 4    8OHdG 5.376825e-07 2.848608e-01 2.782769e-01 1.517566e-03
-# 5  zonulin 4.103556e-14 9.269206e-04 8.615121e-04 6.162446e-09
-# 6     FRUC 3.734990e-06 1.582773e-03 1.582326e-03 9.677682e-05
-# 7     SCRP 1.805087e-33 1.613647e-06 1.032367e-23 1.250076e-22
-# 8     SI_H 1.004213e-18 5.766439e-05 3.602187e-04 1.560806e-07
-```
-
-
-```{r paged.print=FALSE}
-trans_filt <- c("", "log", "", "", "", "", "log", "psd_log")
-names(trans_filt) <- measures
-data.frame(trans_filt)
-```
-
 
 # Mixed model 
 
@@ -435,7 +348,6 @@ After checking residuals:
   * -> better general fit
 
 
-3 participants (ID071, ID090, ID113) are removed of the analysis as we do not have their BMI information.
 
 ```{r paged.print=FALSE}
 DF <- data_merged
