@@ -1,6 +1,6 @@
 
 
-Repository for the code and data of the results presented in Thriene et all. *"Impact of Yogurt and Rolled Oats on the Gut Microbiome: A Randomized Crossover Study displaying Individual Responses and General Resilience"* (under revision).
+Repository for the code and data of the results presented in Thriene et all. *"Impact of Yogurt and Rolled Oats on the Gut Microbiome: A Randomized Crossover Study displaying Individual Responses and General Resilience"* [doi.org/10.1016/j.tjnut.2026.101408](https://doi.org/10.1016/j.tjnut.2026.101408).
 
 
 # Structure of the repository
